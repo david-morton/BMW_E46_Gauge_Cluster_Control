@@ -6,6 +6,7 @@ installed into the E46, and the desire was to maintain a functional OEM dashboar
 
 The scaling ratio of engine RPM to the hex value of CAN payload is 
 approximated in this program based on a linear formula worked out in Excel.
+
 This was done from a test cluster so that visually the needle lined up
 as well as possible throughout the RPM range. Individual clusters may vary
 so some experimentation with this may be desired ... practically speaking it
