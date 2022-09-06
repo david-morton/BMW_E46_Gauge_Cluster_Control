@@ -28,6 +28,8 @@ X11175 for testing purposes on the bench. This signal is usually provided by the
 The lowest speed pulse generation that seems to allow activation of the fuel economy gauge is
 82Hz when increasing and it will stop function at 68Hz when decreasing. 82Hz seems to be about
 5kph.
+
+VQ37 ECU Pin 110 is 'Engine speed output signal' and outputs a square wave at 3 pulses per revolution
 */
 
 #include <SPI.h>
@@ -43,17 +45,20 @@ const int CAN_INT_PIN = 2;
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-// Define varaibles that will be used later
-float rpmHexConversionMultipler = 6.55;    // Default multiplier set to a sensible value for accuracy at lower RPM.
-                                           // This will be overriden via the formula based multiplier later on if used.
-const int sweepIncrementRpm = 25;
-const int sweepStartRpm = 1000;
-const int sweepStopRpm = 3000;
-const int tempAlarmLight = 110;
+// Define variables used specifically for RPM and tachometer
+const int rpmPulsesPerRevolution = 3;           // Number of pulses on the signal wire per crank revolution
+const byte rpmSignalPin = 19;                   // Digital input pin for signal wire and interrupt
+unsigned long latestRpmPulseTime = micros();    // Will store latest ISR micros value for calculations
+volatile long latestRpmPulseCounter = 0;        // Will store latest the number of pulses counted
+unsigned long previousRpmPulseTime;             // Will store previous ISR micros value for calculations
+volatile long previousRpmPulseCounter;          // Will store previous the number of pulses counted
+float currentRpm;                               // Will store the current RPM value
+int multipliedRpm;                              // The RPM value to represent in CAN payload which the cluster is expecting
+float rpmHexConversionMultipler = 6.55;         // Default multiplier set to a sensible value for accuracy at lower RPM.
+                                                // This will be overriden via the formula based multiplier later on if used.
 
-int step;
-int multipliedRpm;
-int currentRpm = sweepStartRpm;
+// Define varaibles used specifically for temperature
+const int tempAlarmLight = 110;            // What temperature should the warning light come on at
 int currentTempCelsius;
 
 // Define CAN payloads for each use case
@@ -61,20 +66,21 @@ unsigned char canPayloadRpm[8] = {0, 0, 0, 0, 0, 0, 0, 0};     //RPM
 unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Temp
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
 
-// Function - Read RPM value from Nissan CAN
-void canReadRpm(){
-    if (currentRpm >= sweepStopRpm)
-        step = -sweepIncrementRpm;
-    else if (currentRpm <= sweepStartRpm)
-        step = sweepIncrementRpm;
+// Function - Calculate current RPM
+void calculateRpm(){
+    unsigned long deltaMicros = latestRpmPulseTime - previousRpmPulseTime;
+    unsigned long deltaRpmCounter = latestRpmPulseCounter - previousRpmPulseCounter;
 
-    currentRpm = currentRpm + step;
-    multipliedRpm = currentRpm * rpmHexConversionMultipler;
+    float revolutions = deltaRpmCounter / rpmPulsesPerRevolution;
+    float minutes = deltaMicros / 60000000; 
+    
+    currentRpm = revolutions / minutes;
 }
 
-// Function - Write RPM value to BMW CAN
+// Function - Write RPM value to BMW CAN bus
 void canWriteRpm(){
     rpmHexConversionMultipler = (-0.00005540102040816370 * currentRpm) + 6.70061224489796;
+    multipliedRpm = currentRpm * rpmHexConversionMultipler;
 
     canPayloadRpm[2] = multipliedRpm;            //LSB
     canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
@@ -118,10 +124,18 @@ void canWriteMisc() {
     CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
+// ISR - Update the RPM counter and time
+void updateRpmPulse() {
+    previousRpmPulseCounter = latestRpmPulseCounter;
+    previousRpmPulseTime = latestRpmPulseTime;
+    latestRpmPulseCounter ++;
+    latestRpmPulseTime = micros();
+}
+
 // Define our timed actions
-TimedAction readRpmThread = TimedAction(40,canReadRpm);
-TimedAction readTempThread = TimedAction(40,canReadTemp);
+TimedAction calculateRpmThread = TimedAction(10,calculateRpm);
 TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
+TimedAction readTempThread = TimedAction(40,canReadTemp);
 TimedAction writeTempThread = TimedAction(10,canWriteTemp);
 TimedAction writeMiscThread = TimedAction(10,canWriteMisc);
 
@@ -142,11 +156,15 @@ void setup() {
         delay(250);
     }
     SERIAL_PORT_MONITOR.println("Nissan CAN init ok!");
+
+    // Configure interrupt for RPM signal input
+    pinMode(rpmSignalPin, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
 }
 
 // Our main loop
 void loop() {
-    readRpmThread.check();
+    calculateRpmThread.check();
     writeRpmThread.check();
     readTempThread.check();
     writeTempThread.check();

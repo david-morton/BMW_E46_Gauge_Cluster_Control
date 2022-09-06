@@ -33,7 +33,7 @@
 
 #ifdef CAN_2515
   #include "mcp2515_can.h"
-  const int SPI_CS_PIN = 10;
+  const int SPI_CS_PIN = 10; // This is 10 for Nissan and 9 for BMW CAN
   const int CAN_INT_PIN = 2;
   mcp2515_can CAN(SPI_CS_PIN); // Set CS pin
 #endif
