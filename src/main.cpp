@@ -77,9 +77,6 @@ void calculateRpm(){
 
     currentRpm = pulsesPerMinute / 3;
 
-    previousRpmPulseCounter = latestRpmPulseCounter;
-    previousRpmPulseTime = latestRpmPulseTime;
-
     SERIAL_PORT_MONITOR.print("Delta Micros: ");
     SERIAL_PORT_MONITOR.println(deltaMicros);
 
@@ -99,6 +96,9 @@ void calculateRpm(){
     SERIAL_PORT_MONITOR.println(currentRpm);
 
     SERIAL_PORT_MONITOR.println(" ");
+
+    previousRpmPulseCounter = latestRpmPulseCounter;
+    previousRpmPulseTime = latestRpmPulseTime;
 }
 
 // Function - Write RPM value to BMW CAN bus
@@ -155,7 +155,7 @@ void updateRpmPulse() {
 }
 
 // Define our timed actions
-TimedAction calculateRpmThread = TimedAction(50,calculateRpm);
+TimedAction calculateRpmThread = TimedAction(20,calculateRpm);
 TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
 TimedAction readTempThread = TimedAction(40,canReadTemp);
 TimedAction writeTempThread = TimedAction(10,canWriteTemp);
