@@ -46,55 +46,54 @@ mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables used specifically for RPM and tachometer
-const int rpmPulsesPerRevolution = 3;           // Number of pulses on the signal wire per crank revolution
-const byte rpmSignalPin = 19;                   // Digital input pin for signal wire and interrupt
-unsigned long latestRpmPulseTime = micros();    // Will store latest ISR micros value for calculations
-volatile long latestRpmPulseCounter = 0;        // Will store latest the number of pulses counted
-unsigned long previousRpmPulseTime;             // Will store previous ISR micros value for calculations
-volatile long previousRpmPulseCounter;          // Will store previous the number of pulses counted
-float currentRpm;                               // Will store the current RPM value
-int multipliedRpm;                              // The RPM value to represent in CAN payload which the cluster is expecting
-float rpmHexConversionMultipler = 6.55;         // Default multiplier set to a sensible value for accuracy at lower RPM.
-                                                // This will be overriden via the formula based multiplier later on if used.
+const int rpmPulsesPerRevolution = 3;                    // Number of pulses on the signal wire per crank revolution
+const byte rpmSignalPin = 19;                            // Digital input pin for signal wire and interrupt
+volatile unsigned long latestRpmPulseTime = micros();    // Will store latest ISR micros value for calculations
+volatile unsigned long latestRpmPulseCounter = 0;        // Will store latest the number of pulses counted
+unsigned long previousRpmPulseTime;                      // Will store previous ISR micros value for calculations
+unsigned long previousRpmPulseCounter;                   // Will store previous the number of pulses counted
+int currentRpm;                                          // Will store the current RPM value
+int multipliedRpm;                                       // The RPM value to represent in CAN payload which the cluster is expecting
+float rpmHexConversionMultipler = 6.55;                  // Default multiplier set to a sensible value for accuracy at lower RPM.
+                                                         // This will be overriden via the formula based multiplier later on if used.
 
 // Define varaibles used specifically for temperature
-const int tempAlarmLight = 110;            // What temperature should the warning light come on at
+const int tempAlarmLight = 105;            // What temperature should the warning light come on at
 int currentTempCelsius;
 
 // Define CAN payloads for each use case
-unsigned char canPayloadRpm[8] = {0, 0, 0, 0, 0, 0, 0, 0};     //RPM
+unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
 unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Temp
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
 
 // Function - Calculate current RPM
 void calculateRpm(){
     unsigned long deltaMicros = latestRpmPulseTime - previousRpmPulseTime;
-    unsigned long deltaRpmCounter = latestRpmPulseCounter - previousRpmPulseCounter;
-    int pulsesPerMinute;
+    unsigned long deltaRpmPulseCounter = latestRpmPulseCounter - previousRpmPulseCounter;
 
-    float revolutions = deltaRpmCounter / rpmPulsesPerRevolution;
-    float minutes = deltaMicros / 60000000; 
-    
-    currentRpm = revolutions / minutes;
+    float microsPerPulse = deltaMicros / deltaRpmPulseCounter;
 
-    pulsesPerMinute = 
+    float pulsesPerMinute = 60000000 / microsPerPulse;
 
-    // Maybe we look at multiplying out pulses per minute and working back ?
+    currentRpm = pulsesPerMinute / 3;
+
+    previousRpmPulseCounter = latestRpmPulseCounter;
+    previousRpmPulseTime = latestRpmPulseTime;
 
     SERIAL_PORT_MONITOR.print("Delta Micros: ");
     SERIAL_PORT_MONITOR.println(deltaMicros);
 
-    SERIAL_PORT_MONITOR.print("Latest RPM counter: ");
+    SERIAL_PORT_MONITOR.print("Latest pulse counter: ");
     SERIAL_PORT_MONITOR.println(latestRpmPulseCounter);
 
-    SERIAL_PORT_MONITOR.print("Previous RPM counter: ");
+    SERIAL_PORT_MONITOR.print("Previous pulse counter: ");
     SERIAL_PORT_MONITOR.println(previousRpmPulseCounter);
 
-    SERIAL_PORT_MONITOR.print("Revolutions: ");
-    SERIAL_PORT_MONITOR.println(revolutions);
+    SERIAL_PORT_MONITOR.print("Micros per pulse: ");
+    SERIAL_PORT_MONITOR.println(microsPerPulse);
 
-    SERIAL_PORT_MONITOR.print("Minutes: ");
-    SERIAL_PORT_MONITOR.println(minutes);
+    SERIAL_PORT_MONITOR.print("Pulses per minute: ");
+    SERIAL_PORT_MONITOR.println(pulsesPerMinute);
 
     SERIAL_PORT_MONITOR.print("Calculated RPM: ");
     SERIAL_PORT_MONITOR.println(currentRpm);
@@ -151,14 +150,12 @@ void canWriteMisc() {
 
 // ISR - Update the RPM counter and time
 void updateRpmPulse() {
-    previousRpmPulseCounter = latestRpmPulseCounter;
-    previousRpmPulseTime = latestRpmPulseTime;
     latestRpmPulseCounter ++;
     latestRpmPulseTime = micros();
 }
 
 // Define our timed actions
-TimedAction calculateRpmThread = TimedAction(10,calculateRpm);
+TimedAction calculateRpmThread = TimedAction(50,calculateRpm);
 TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
 TimedAction readTempThread = TimedAction(40,canReadTemp);
 TimedAction writeTempThread = TimedAction(10,canWriteTemp);
