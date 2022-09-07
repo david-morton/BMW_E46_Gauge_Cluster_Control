@@ -77,26 +77,6 @@ void calculateRpm(){
 
     currentRpm = pulsesPerMinute / 3;
 
-    SERIAL_PORT_MONITOR.print("Delta Micros: ");
-    SERIAL_PORT_MONITOR.println(deltaMicros);
-
-    SERIAL_PORT_MONITOR.print("Latest pulse counter: ");
-    SERIAL_PORT_MONITOR.println(latestRpmPulseCounter);
-
-    SERIAL_PORT_MONITOR.print("Previous pulse counter: ");
-    SERIAL_PORT_MONITOR.println(previousRpmPulseCounter);
-
-    SERIAL_PORT_MONITOR.print("Micros per pulse: ");
-    SERIAL_PORT_MONITOR.println(microsPerPulse);
-
-    SERIAL_PORT_MONITOR.print("Pulses per minute: ");
-    SERIAL_PORT_MONITOR.println(pulsesPerMinute);
-
-    SERIAL_PORT_MONITOR.print("Calculated RPM: ");
-    SERIAL_PORT_MONITOR.println(currentRpm);
-
-    SERIAL_PORT_MONITOR.println(" ");
-
     previousRpmPulseCounter = latestRpmPulseCounter;
     previousRpmPulseTime = latestRpmPulseTime;
 }
@@ -154,12 +134,19 @@ void updateRpmPulse() {
     latestRpmPulseTime = micros();
 }
 
+// Function - Print temp reading to serial monitor
+void reportTemp() {
+    SERIAL_PORT_MONITOR.print("Temperature is: ");
+    SERIAL_PORT_MONITOR.println(currentTempCelsius);
+}
+
 // Define our timed actions
 TimedAction calculateRpmThread = TimedAction(20,calculateRpm);
 TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
 TimedAction readTempThread = TimedAction(40,canReadTemp);
 TimedAction writeTempThread = TimedAction(10,canWriteTemp);
 TimedAction writeMiscThread = TimedAction(10,canWriteMisc);
+TimedAction debugReportTemp = TimedAction(1000,reportTemp);
 
 // Our main setup stanza
 void setup() {
@@ -191,4 +178,5 @@ void loop() {
     readTempThread.check();
     writeTempThread.check();
     writeMiscThread.check();
+    debugReportTemp.check();
 }
