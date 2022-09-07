@@ -70,11 +70,36 @@ unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check lig
 void calculateRpm(){
     unsigned long deltaMicros = latestRpmPulseTime - previousRpmPulseTime;
     unsigned long deltaRpmCounter = latestRpmPulseCounter - previousRpmPulseCounter;
+    int pulsesPerMinute;
 
     float revolutions = deltaRpmCounter / rpmPulsesPerRevolution;
     float minutes = deltaMicros / 60000000; 
     
     currentRpm = revolutions / minutes;
+
+    pulsesPerMinute = 
+
+    // Maybe we look at multiplying out pulses per minute and working back ?
+
+    SERIAL_PORT_MONITOR.print("Delta Micros: ");
+    SERIAL_PORT_MONITOR.println(deltaMicros);
+
+    SERIAL_PORT_MONITOR.print("Latest RPM counter: ");
+    SERIAL_PORT_MONITOR.println(latestRpmPulseCounter);
+
+    SERIAL_PORT_MONITOR.print("Previous RPM counter: ");
+    SERIAL_PORT_MONITOR.println(previousRpmPulseCounter);
+
+    SERIAL_PORT_MONITOR.print("Revolutions: ");
+    SERIAL_PORT_MONITOR.println(revolutions);
+
+    SERIAL_PORT_MONITOR.print("Minutes: ");
+    SERIAL_PORT_MONITOR.println(minutes);
+
+    SERIAL_PORT_MONITOR.print("Calculated RPM: ");
+    SERIAL_PORT_MONITOR.println(currentRpm);
+
+    SERIAL_PORT_MONITOR.println(" ");
 }
 
 // Function - Write RPM value to BMW CAN bus
