@@ -92,11 +92,6 @@ void canWriteRpm(){
     CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
 }
 
-// Function - Read temp value from Nissan CAN
-void canReadTemp(){
-    currentTempCelsius = 95;
-}
-
 // Function - Write temp value to BMW CAN
 void canWriteTemp(){
     canPayloadTemp[1] = (currentTempCelsius + 48.373) / 0.75;
@@ -140,10 +135,33 @@ void reportTemp() {
     SERIAL_PORT_MONITOR.println(currentTempCelsius);
 }
 
+// Function - Read latest values from Nissan CAN
+void updateNissanDataFromCan() {
+    currentTempCelsius = 95;
+
+    unsigned char len = 0;
+    unsigned char buf[8];
+
+    if (CAN_MSGAVAIL == CAN_NISSAN.checkReceive()) {
+        CAN_NISSAN.readMsgBuf(&len, buf);
+
+        unsigned long canId = CAN_NISSAN.getCanId();
+
+        SERIAL_PORT_MONITOR.println("-----------------------------");
+        SERIAL_PORT_MONITOR.print("Get data from ID: 0x");
+        SERIAL_PORT_MONITOR.println(canId, HEX);
+
+        for (int i = 0; i < len; i++) { // print the data
+            SERIAL_PORT_MONITOR.print(buf[i], HEX);
+            SERIAL_PORT_MONITOR.print("\t");
+        }
+        SERIAL_PORT_MONITOR.println();
+    }
+}
+
 // Define our timed actions
 TimedAction calculateRpmThread = TimedAction(20,calculateRpm);
 TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
-TimedAction readTempThread = TimedAction(40,canReadTemp);
 TimedAction writeTempThread = TimedAction(10,canWriteTemp);
 TimedAction writeMiscThread = TimedAction(10,canWriteMisc);
 TimedAction debugReportTemp = TimedAction(1000,reportTemp);
@@ -160,7 +178,7 @@ void setup() {
     }
     SERIAL_PORT_MONITOR.println("BMW CAN init ok!");
 
-    while (CAN_OK != CAN_NISSAN.begin(CAN_500KBPS)) {          // init can bus : baudrate = 500k ??
+    while (CAN_OK != CAN_NISSAN.begin(CAN_500KBPS)) {          // init can bus : baudrate = 500k
         SERIAL_PORT_MONITOR.println("Nissan CAN init fail, retry...");
         delay(250);
     }
@@ -169,14 +187,31 @@ void setup() {
     // Configure interrupt for RPM signal input
     pinMode(rpmSignalPin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
+
+    // Configure masks and filters for Nissan side to reduce noise
+    // There are two masks in the mcp2515 which both need to be set
+    // Mask 0 has 2 filters and mask 1 has 4 so we set them all
+    // https://github.com/coryjfowler/MCP_CAN_lib/blob/master/examples/Standard_MaskFilter/Standard_MaskFilter.ino
+    CAN_NISSAN.init_Mask(0, 0, 0x07FF0000);
+    CAN_NISSAN.init_Filt(0, 0, 0x01800000);
+    CAN_NISSAN.init_Filt(1, 0, 0x01800000);
+
+    CAN_NISSAN.init_Mask(1, 0, 0x07FF0000);
+    CAN_NISSAN.init_Filt(2, 0, 0x01800000);
+    CAN_NISSAN.init_Filt(3, 0, 0x01800000);
+    CAN_NISSAN.init_Filt(4, 0, 0x01800000);
+    CAN_NISSAN.init_Filt(5, 0, 0x01800000);
 }
 
 // Our main loop
 void loop() {
+    // Perform timed action checks
     calculateRpmThread.check();
     writeRpmThread.check();
-    readTempThread.check();
     writeTempThread.check();
     writeMiscThread.check();
     debugReportTemp.check();
+
+    // Update the values we are looking for from Nissan CAN
+    updateNissanDataFromCan();
 }
