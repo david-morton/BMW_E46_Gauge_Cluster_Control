@@ -192,11 +192,12 @@ void setup() {
     // There are two masks in the mcp2515 which both need to be set
     // Mask 0 has 2 filters and mask 1 has 4 so we set them all
     // https://github.com/coryjfowler/MCP_CAN_lib/blob/master/examples/Standard_MaskFilter/Standard_MaskFilter.ino
-    CAN_NISSAN.init_Mask(0, 0, 0x07FF0000);
+    // https://www.microchip.com/forums/m318430.aspx#318449
+    CAN_NISSAN.init_Mask(0, 0, 0x03FF0000);
     CAN_NISSAN.init_Filt(0, 0, 0x01800000);
     CAN_NISSAN.init_Filt(1, 0, 0x01800000);
 
-    CAN_NISSAN.init_Mask(1, 0, 0x07FF0000);
+    CAN_NISSAN.init_Mask(1, 0, 0x03FF0000);
     CAN_NISSAN.init_Filt(2, 0, 0x01800000);
     CAN_NISSAN.init_Filt(3, 0, 0x01800000);
     CAN_NISSAN.init_Filt(4, 0, 0x01800000);
