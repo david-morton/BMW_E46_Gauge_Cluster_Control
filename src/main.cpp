@@ -57,9 +57,15 @@ int multipliedRpm;                                       // The RPM value to rep
 float rpmHexConversionMultipler = 6.55;                  // Default multiplier set to a sensible value for accuracy at lower RPM.
                                                          // This will be overriden via the formula based multiplier later on if used.
 
-// Define varaibles used specifically for temperature
-const int tempAlarmLight = 105;            // What temperature should the warning light come on at
+// Define other variables
+const int tempAlarmLight = 110;                          // What temperature should the warning light come on at
 int currentTempCelsius;
+int checkEngineLightState;
+unsigned long engineCheckTriggeredMillis = 1;           // Holds the timestamp when engine check was triggered
+const int minimumEngineCheckLightDuration = 3;          // How many seconds should engine check light display for minimum
+                                                        // This is to ensure it illuminates at ignition on as it is too fast
+                                                        // to show on the BMW cluster. Maybe i am not even reading the right 
+                                                        // CAN ID :D
 
 // Define CAN payloads for each use case
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
@@ -90,6 +96,9 @@ void canWriteRpm(){
     canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
 
     CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
+
+    // SERIAL_PORT_MONITOR.print("RPM Value: ");
+    // SERIAL_PORT_MONITOR.println(currentRpm);
 }
 
 // Function - Write temp value to BMW CAN
@@ -104,9 +113,10 @@ int consumptionValue = 0;
 
 // Function - Write misc payload to BMW CAN
 void canWriteMisc() {
-    canPayloadMisc[0] = 0;                          // 2 for check engine light
+    canPayloadMisc[0] = checkEngineLightState;      // 2 for check engine light
                                                     // 16 for EML light
-                                                    // 18 for check engine AND EML (add together)
+                                                    // 18 for check engine AND EML
+                                                    // 0 for neither
     canPayloadMisc[1] = consumptionValue;           // Fuel consumption LSB                                        
     canPayloadMisc[2] = (consumptionValue >> 8);    // Fuel consumption MSB
     if (currentTempCelsius >= tempAlarmLight)       // Set the red alarm light on the temp gauge if needed
@@ -137,8 +147,6 @@ void reportTemp() {
 
 // Function - Read latest values from Nissan CAN
 void updateNissanDataFromCan() {
-    currentTempCelsius = 95;
-
     unsigned char len = 0;
     unsigned char buf[8];
 
@@ -147,24 +155,40 @@ void updateNissanDataFromCan() {
 
         unsigned long canId = CAN_NISSAN.getCanId();
 
-        SERIAL_PORT_MONITOR.println("-----------------------------");
-        SERIAL_PORT_MONITOR.print("Get data from ID: 0x");
-        SERIAL_PORT_MONITOR.println(canId, HEX);
-
-        for (int i = 0; i < len; i++) { // print the data
-            SERIAL_PORT_MONITOR.print(buf[i], HEX);
-            SERIAL_PORT_MONITOR.print("\t");
+        // Get the current coolant temperature and engine check light state
+        if (canId == 0x551) {
+            currentTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
+                                                    // data from NDSIII or actual outside temperature so -40 it is
+        } else if (canId == 0x160) {
+            if (buf[6] == 192) {                    // Hex C0, check engine light is off
+                if (millis() > (engineCheckTriggeredMillis + (minimumEngineCheckLightDuration * 1000))) {
+                    checkEngineLightState = 0;
+                }
+            }
+            if (buf[6] == 224) {                    // Hex E0, check engine light is on
+                checkEngineLightState = 2;
+                engineCheckTriggeredMillis = millis();
+            }
         }
-        SERIAL_PORT_MONITOR.println();
+        
+        // SERIAL_PORT_MONITOR.print("0x");
+        // SERIAL_PORT_MONITOR.print(canId, HEX);
+        // SERIAL_PORT_MONITOR.print("\t");
+
+        // for (int i = 0; i < len; i++) { // print the data
+        //     SERIAL_PORT_MONITOR.print(buf[i], HEX);
+        //     SERIAL_PORT_MONITOR.print("\t");
+        // }
+        // SERIAL_PORT_MONITOR.println();
     }
 }
 
 // Define our timed actions
 TimedAction calculateRpmThread = TimedAction(20,calculateRpm);
-TimedAction writeRpmThread = TimedAction(10,canWriteRpm);
-TimedAction writeTempThread = TimedAction(10,canWriteTemp);
-TimedAction writeMiscThread = TimedAction(10,canWriteMisc);
-TimedAction debugReportTemp = TimedAction(1000,reportTemp);
+TimedAction writeRpmThread     = TimedAction(10,canWriteRpm);
+TimedAction writeTempThread    = TimedAction(10,canWriteTemp);
+TimedAction writeMiscThread    = TimedAction(10,canWriteMisc);
+TimedAction debugReportTemp    = TimedAction(1000,reportTemp);
 
 // Our main setup stanza
 void setup() {
@@ -190,18 +214,18 @@ void setup() {
 
     // Configure masks and filters for Nissan side to reduce noise
     // There are two masks in the mcp2515 which both need to be set
-    // Mask 0 has 2 filters and mask 1 has 4 so we set them all
-    // https://github.com/coryjfowler/MCP_CAN_lib/blob/master/examples/Standard_MaskFilter/Standard_MaskFilter.ino
-    // https://www.microchip.com/forums/m318430.aspx#318449
-    CAN_NISSAN.init_Mask(0, 0, 0x03FF0000);
-    CAN_NISSAN.init_Filt(0, 0, 0x01800000);
-    CAN_NISSAN.init_Filt(1, 0, 0x01800000);
+    // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
+    // 0x551 is where coolant temperature is located
+    // 0x160 is **maybe** where the check engine light is
+    CAN_NISSAN.init_Mask(0, 0, 0xFFF);
+    CAN_NISSAN.init_Filt(0, 0, 0x551);
+    CAN_NISSAN.init_Filt(1, 0, 0x160);
 
-    CAN_NISSAN.init_Mask(1, 0, 0x03FF0000);
-    CAN_NISSAN.init_Filt(2, 0, 0x01800000);
-    CAN_NISSAN.init_Filt(3, 0, 0x01800000);
-    CAN_NISSAN.init_Filt(4, 0, 0x01800000);
-    CAN_NISSAN.init_Filt(5, 0, 0x01800000);
+    CAN_NISSAN.init_Mask(1, 0, 0xFFF);
+    CAN_NISSAN.init_Filt(2, 0, 0x551);
+    CAN_NISSAN.init_Filt(3, 0, 0x160);
+    CAN_NISSAN.init_Filt(4, 0, 0x551);
+    CAN_NISSAN.init_Filt(5, 0, 0x160);
 }
 
 // Our main loop
@@ -211,7 +235,7 @@ void loop() {
     writeRpmThread.check();
     writeTempThread.check();
     writeMiscThread.check();
-    debugReportTemp.check();
+    // debugReportTemp.check();
 
     // Update the values we are looking for from Nissan CAN
     updateNissanDataFromCan();
