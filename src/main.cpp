@@ -53,6 +53,7 @@ volatile unsigned long latestRpmPulseCounter = 0;        // Will store latest th
 unsigned long previousRpmPulseTime;                      // Will store previous ISR micros value for calculations
 unsigned long previousRpmPulseCounter;                   // Will store previous the number of pulses counted
 int currentRpm;                                          // Will store the current RPM value
+int previousRpm;                                         // Will store the previous RPM value
 int multipliedRpm;                                       // The RPM value to represent in CAN payload which the cluster is expecting
 float rpmHexConversionMultipler = 6.55;                  // Default multiplier set to a sensible value for accuracy at lower RPM.
                                                          // This will be overriden via the formula based multiplier later on if used.
@@ -89,16 +90,17 @@ void calculateRpm(){
 
 // Function - Write RPM value to BMW CAN bus
 void canWriteRpm(){
-    rpmHexConversionMultipler = (-0.00005540102040816370 * currentRpm) + 6.70061224489796;
-    multipliedRpm = currentRpm * rpmHexConversionMultipler;
+    if (currentRpm != 0 && abs(currentRpm - previousRpm) > 750){     // We see some odd values from time to time so lets filter them out
+        rpmHexConversionMultipler = (-0.00005540102040816370 * currentRpm) + 6.70061224489796;
+        multipliedRpm = currentRpm * rpmHexConversionMultipler;
+        canPayloadRpm[2] = multipliedRpm;            //LSB
+        canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
 
-    canPayloadRpm[2] = multipliedRpm;            //LSB
-    canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
+        SERIAL_PORT_MONITOR.print("RPM Value: ");
+        SERIAL_PORT_MONITOR.println(currentRpm);
+    }
 
     CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
-
-    // SERIAL_PORT_MONITOR.print("RPM Value: ");
-    // SERIAL_PORT_MONITOR.println(currentRpm);
 }
 
 // Function - Write temp value to BMW CAN
