@@ -84,13 +84,14 @@ void calculateRpm(){
 
     currentRpm = pulsesPerMinute / 3;
 
+    // Set previous variables to current values for next loop
     previousRpmPulseCounter = latestRpmPulseCounter;
     previousRpmPulseTime = latestRpmPulseTime;
 }
 
 // Function - Write RPM value to BMW CAN bus
 void canWriteRpm(){
-    if (currentRpm != 0 && abs(currentRpm - previousRpm) > 750){     // We see some odd values from time to time so lets filter them out
+    if (currentRpm != 0 && abs(currentRpm - previousRpm) < 750){     // We see some odd values from time to time so lets filter them out
         rpmHexConversionMultipler = (-0.00005540102040816370 * currentRpm) + 6.70061224489796;
         multipliedRpm = currentRpm * rpmHexConversionMultipler;
         canPayloadRpm[2] = multipliedRpm;            //LSB
@@ -101,6 +102,7 @@ void canWriteRpm(){
     }
 
     CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
+    previousRpm = currentRpm;
 }
 
 // Function - Write temp value to BMW CAN
