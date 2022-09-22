@@ -29,7 +29,11 @@ The lowest speed pulse generation that seems to allow activation of the fuel eco
 82Hz when increasing and it will stop function at 68Hz when decreasing. 82Hz seems to be about
 5kph.
 
-VQ37 ECU Pin 110 is 'Engine speed output signal' and outputs a square wave at 3 pulses per revolution
+VQ37 ECU Pin 110 is 'Engine speed output signal' and outputs a square wave at 3 pulses per
+revolution. We use this signal to calculate the engine RPM and send the value to the cluster.
+
+The Arduino will also be used to control the radiator thermo fan via a Cytron MD30C. This
+is a PWM motor controller suitable for brushed DC motors up to a constance 30A.
 */
 
 #include <SPI.h>
@@ -46,27 +50,33 @@ mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables used specifically for RPM and tachometer
-const int rpmPulsesPerRevolution = 3;                    // Number of pulses on the signal wire per crank revolution
-const byte rpmSignalPin = 19;                            // Digital input pin for signal wire and interrupt
-volatile unsigned long latestRpmPulseTime = micros();    // Will store latest ISR micros value for calculations
-volatile unsigned long latestRpmPulseCounter = 0;        // Will store latest the number of pulses counted
-unsigned long previousRpmPulseTime;                      // Will store previous ISR micros value for calculations
-unsigned long previousRpmPulseCounter;                   // Will store previous the number of pulses counted
-int currentRpm;                                          // Will store the current RPM value
-int previousRpm;                                         // Will store the previous RPM value
-int multipliedRpm;                                       // The RPM value to represent in CAN payload which the cluster is expecting
-float rpmHexConversionMultipler = 6.55;                  // Default multiplier set to a sensible value for accuracy at lower RPM.
-                                                         // This will be overriden via the formula based multiplier later on if used.
+const int rpmPulsesPerRevolution = 3;                   // Number of pulses on the signal wire per crank revolution
+const byte rpmSignalPin = 19;                           // Digital input pin for signal wire and interrupt
+volatile unsigned long latestRpmPulseTime = micros();   // Will store latest ISR micros value for calculations
+volatile unsigned long latestRpmPulseCounter = 0;       // Will store latest the number of pulses counted
+unsigned long previousRpmPulseTime;                     // Will store previous ISR micros value for calculations
+unsigned long previousRpmPulseCounter;                  // Will store previous the number of pulses counted
+int currentRpm;                                         // Will store the current RPM value
+int previousRpm;                                        // Will store the previous RPM value
+int multipliedRpm;                                      // The RPM value to represent in CAN payload which the cluster is expecting
+float rpmHexConversionMultipler = 6.55;                 // Default multiplier set to a sensible value for accuracy at lower RPM.
+                                                        // This will be overriden via the formula based multiplier later on if used.
+
+// Define variables used for radiator fan control
+const int fanMinimumEngineTemperature = 45;             // Temperature in celcius when fan will begin opperation
+const int fanMaximumEngineTemperature = 105;            // Temperature in celcius when fan will be opperating at maximum power
+float fanPercentageOutput = 0.0;                        // Will store the current fan output percentage
 
 // Define other variables
-const int tempAlarmLight = 110;                          // What temperature should the warning light come on at
+const int tempAlarmLight = 110;                         // What temperature should the warning light come on at
 int currentTempCelsius;
 int checkEngineLightState;
 unsigned long engineCheckTriggeredMillis = 1;           // Holds the timestamp when engine check was triggered
 const int minimumEngineCheckLightDuration = 3;          // How many seconds should engine check light display for minimum
                                                         // This is to ensure it illuminates at ignition on as it is too fast
-                                                        // to show on the BMW cluster. Maybe i am not even reading the right 
-                                                        // CAN ID :D
+                                                        // to show on the BMW cluster. This is only useful if you power the
+                                                        // Arduino via accessory power, in my case the check light happens
+                                                        // before the Arduino boots up and can push the CAN payload.
 
 // Define CAN payloads for each use case
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
@@ -137,16 +147,18 @@ void canWriteMisc() {
     CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
-// ISR - Update the RPM counter and time
+// ISR - Update the RPM counter and time via interrupt
 void updateRpmPulse() {
     latestRpmPulseCounter ++;
     latestRpmPulseTime = micros();
 }
 
 // Function - Print temp reading to serial monitor
-void reportTemp() {
+void reportTempAndFanDebug() {
     SERIAL_PORT_MONITOR.print("Temperature is: ");
-    SERIAL_PORT_MONITOR.println(currentTempCelsius);
+    SERIAL_PORT_MONITOR.print(currentTempCelsius);
+    SERIAL_PORT_MONITOR.print("\tFan Percentage is: ");
+    SERIAL_PORT_MONITOR.println(fanPercentageOutput);
 }
 
 // Function - Read latest values from Nissan CAN
@@ -162,7 +174,7 @@ void updateNissanDataFromCan() {
         // Get the current coolant temperature and engine check light state
         if (canId == 0x551) {
             currentTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
-                                                    // data from NDSIII or actual outside temperature so -40 it is
+                                                    // data from NDSIII temperature so -40 it is
         } else if (canId == 0x160) {
             if (buf[6] == 192) {                    // Hex C0, check engine light is off
                 if (millis() > (engineCheckTriggeredMillis + (minimumEngineCheckLightDuration * 1000))) {
@@ -187,12 +199,32 @@ void updateNissanDataFromCan() {
     }
 }
 
+// Function - Calculate and set radiator fan output
+void setRadiatorFanOutput() {
+    if (currentTempCelsius >= fanMaximumEngineTemperature) {
+        fanPercentageOutput = 100;
+    } else if (currentTempCelsius > fanMinimumEngineTemperature) {
+        int degreesAboveMinimum = currentTempCelsius - fanMinimumEngineTemperature;
+        fanPercentageOutput = (degreesAboveMinimum / (fanMaximumEngineTemperature - fanMinimumEngineTemperature)) * 100;
+    } else {
+        fanPercentageOutput = 0;
+    }
+
+    // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
+    if (fanPercentageOutput != 0 && currentRpm > 500) {
+        SERIAL_PORT_MONITOR.println("Turning on PWM fan bits here");
+    } else {
+        SERIAL_PORT_MONITOR.println("Turning off fan via PWM here");
+    }
+}
+
 // Define our timed actions
-TimedAction calculateRpmThread = TimedAction(20,calculateRpm);
-TimedAction writeRpmThread     = TimedAction(10,canWriteRpm);
-TimedAction writeTempThread    = TimedAction(10,canWriteTemp);
-TimedAction writeMiscThread    = TimedAction(10,canWriteMisc);
-TimedAction debugReportTemp    = TimedAction(1000,reportTemp);
+TimedAction calculateRpmThread         = TimedAction(20,calculateRpm);
+TimedAction writeRpmThread             = TimedAction(10,canWriteRpm);
+TimedAction writeTempThread            = TimedAction(10,canWriteTemp);
+TimedAction writeMiscThread            = TimedAction(10,canWriteMisc);
+TimedAction setRadiatorFanOutputThread = TimedAction(10000,setRadiatorFanOutput);
+TimedAction debugReportTempAndFanDebug = TimedAction(1000,reportTempAndFanDebug);
 
 // Our main setup stanza
 void setup() {
@@ -239,7 +271,8 @@ void loop() {
     writeRpmThread.check();
     writeTempThread.check();
     writeMiscThread.check();
-    // debugReportTemp.check();
+    setRadiatorFanOutputThread.check();
+    debugReportTempAndFanDebug.check();
 
     // Update the values we are looking for from Nissan CAN
     updateNissanDataFromCan();
