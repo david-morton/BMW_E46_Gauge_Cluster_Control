@@ -33,14 +33,14 @@ VQ37 ECU Pin 110 is 'Engine speed output signal' and outputs a square wave at 3 
 revolution. We use this signal to calculate the engine RPM and send the value to the cluster.
 
 The Arduino will also be used to control the radiator thermo fan via a Cytron MD30C. This
-is a PWM motor controller suitable for brushed DC motors up to a constance 30A.
+is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 */
 
 #include <SPI.h>
 #include <Wire.h>
 #include <TimedAction.h>
-#include <mcp2515_can.h>
-#include <Adafruit_MCP9808.h>
+#include <mcp2515_can.h>        // Used for Seeed shields
+#include <Adafruit_MCP9808.h>   // Used for temperature sensor
 
 #define CAN_2515
 
@@ -84,6 +84,9 @@ const int minimumEngineCheckLightDuration = 3;          // How many seconds shou
                                                         // Arduino via accessory power, in my case the check light happens
                                                         // before the Arduino boots up and can push the CAN payload.
 float currentEngineElectronicsTemp;                     // Will store the temperature in celcius of the engine bay electronics
+int consumptionCounter = 0;
+int consumptionIncrease = 40;
+int consumptionValue = 0;
 
 // Define CAN payloads for each use case
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
@@ -127,10 +130,6 @@ void canWriteTemp(){
     canPayloadTemp[1] = (currentEngineTempCelsius + 48.373) / 0.75;
     CAN_BMW.sendMsgBuf(0x329, 0, 8, canPayloadTemp);
 }
-
-int consumptionCounter = 0;
-int consumptionIncrease = 40;
-int consumptionValue = 0;
 
 // Function - Write misc payload to BMW CAN
 void canWriteMisc() {
