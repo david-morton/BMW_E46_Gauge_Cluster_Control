@@ -41,6 +41,8 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 #include <TimedAction.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
+#include "functions_read.h"
+#include "functions_write.h"
 
 #define CAN_2515
 
