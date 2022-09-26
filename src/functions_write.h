@@ -3,6 +3,6 @@
 
 #include <Arduino.h>
 
-// Put me function headers here
+// Put function definitions here
 
 #endif
