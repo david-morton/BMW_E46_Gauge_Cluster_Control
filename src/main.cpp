@@ -37,21 +37,26 @@ is a PWM motor controller suitable for brushed DC motors up to a constance 30A.
 */
 
 #include <SPI.h>
+#include <Wire.h>
 #include <TimedAction.h>
 #include <mcp2515_can.h>
+#include <Adafruit_MCP9808.h>
 
 #define CAN_2515
 
+// Pin assignments all go here
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10;          // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
+const byte rpmSignalPin = 19;              // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 44;     // Digital output pin for PWM signal to radiator fan motor driver board
+const byte fanDriverPwmDirectionPin = 43;  // Digital output pin for PWM direction for radiator fan motor driver board
 
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables used specifically for RPM and tachometer
 const int rpmPulsesPerRevolution = 3;                   // Number of pulses on the signal wire per crank revolution
-const byte rpmSignalPin = 19;                           // Digital input pin for signal wire and interrupt
 volatile unsigned long latestRpmPulseTime = micros();   // Will store latest ISR micros value for calculations
 volatile unsigned long latestRpmPulseCounter = 0;       // Will store latest the number of pulses counted
 unsigned long previousRpmPulseTime;                     // Will store previous ISR micros value for calculations
@@ -63,13 +68,14 @@ float rpmHexConversionMultipler = 6.55;                 // Default multiplier se
                                                         // This will be overriden via the formula based multiplier later on if used.
 
 // Define variables used for radiator fan control
-const int fanMinimumEngineTemperature = 45;             // Temperature in celcius when fan will begin opperation
-const int fanMaximumEngineTemperature = 105;            // Temperature in celcius when fan will be opperating at maximum power
+const float fanMinimumEngineTemperature = 90;           // Temperature in celcius when fan will begin opperation
+const float fanMaximumEngineTemperature = 105;          // Temperature in celcius when fan will be opperating at maximum power
 float fanPercentageOutput = 0.0;                        // Will store the current fan output percentage
+int fanPwmPinValue = 0;                                 // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
 
 // Define other variables
 const int tempAlarmLight = 110;                         // What temperature should the warning light come on at
-int currentTempCelsius;
+int currentEngineTempCelsius;
 int checkEngineLightState;
 unsigned long engineCheckTriggeredMillis = 1;           // Holds the timestamp when engine check was triggered
 const int minimumEngineCheckLightDuration = 3;          // How many seconds should engine check light display for minimum
@@ -77,11 +83,15 @@ const int minimumEngineCheckLightDuration = 3;          // How many seconds shou
                                                         // to show on the BMW cluster. This is only useful if you power the
                                                         // Arduino via accessory power, in my case the check light happens
                                                         // before the Arduino boots up and can push the CAN payload.
+float currentEngineElectronicsTemp;                     // Will store the temperature in celcius of the engine bay electronics
 
 // Define CAN payloads for each use case
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
 unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Temp
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
+
+// Create the MCP9808 temperature sensor object
+Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
 
 // Function - Calculate current RPM
 void calculateRpm(){
@@ -106,9 +116,6 @@ void canWriteRpm(){
         multipliedRpm = currentRpm * rpmHexConversionMultipler;
         canPayloadRpm[2] = multipliedRpm;            //LSB
         canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
-
-        SERIAL_PORT_MONITOR.print("RPM Value: ");
-        SERIAL_PORT_MONITOR.println(currentRpm);
     }
 
     CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
@@ -117,7 +124,7 @@ void canWriteRpm(){
 
 // Function - Write temp value to BMW CAN
 void canWriteTemp(){
-    canPayloadTemp[1] = (currentTempCelsius + 48.373) / 0.75;
+    canPayloadTemp[1] = (currentEngineTempCelsius + 48.373) / 0.75;
     CAN_BMW.sendMsgBuf(0x329, 0, 8, canPayloadTemp);
 }
 
@@ -133,7 +140,7 @@ void canWriteMisc() {
                                                     // 0 for neither
     canPayloadMisc[1] = consumptionValue;           // Fuel consumption LSB                                        
     canPayloadMisc[2] = (consumptionValue >> 8);    // Fuel consumption MSB
-    if (currentTempCelsius >= tempAlarmLight)       // Set the red alarm light on the temp gauge if needed
+    if (currentEngineTempCelsius >= tempAlarmLight) // Set the red alarm light on the temp gauge if needed
         canPayloadMisc[3] = 8;
     else
         canPayloadMisc[3] = 0;
@@ -154,11 +161,15 @@ void updateRpmPulse() {
 }
 
 // Function - Print temp reading to serial monitor
-void reportTempAndFanDebug() {
+void reportDebugInfo() {
     SERIAL_PORT_MONITOR.print("Temperature is: ");
-    SERIAL_PORT_MONITOR.print(currentTempCelsius);
+    SERIAL_PORT_MONITOR.print(currentEngineTempCelsius);
     SERIAL_PORT_MONITOR.print("\tFan Percentage is: ");
-    SERIAL_PORT_MONITOR.println(fanPercentageOutput);
+    SERIAL_PORT_MONITOR.print(fanPercentageOutput);
+    SERIAL_PORT_MONITOR.print("\tFan pin value is: ");
+    SERIAL_PORT_MONITOR.println(fanPwmPinValue);
+    SERIAL_PORT_MONITOR.print("\tEngine bay electronics temp is: ");
+    SERIAL_PORT_MONITOR.println(currentEngineElectronicsTemp);
 }
 
 // Function - Read latest values from Nissan CAN
@@ -173,7 +184,7 @@ void updateNissanDataFromCan() {
 
         // Get the current coolant temperature and engine check light state
         if (canId == 0x551) {
-            currentTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
+            currentEngineTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
                                                     // data from NDSIII temperature so -40 it is
         } else if (canId == 0x160) {
             if (buf[6] == 192) {                    // Hex C0, check engine light is off
@@ -201,10 +212,10 @@ void updateNissanDataFromCan() {
 
 // Function - Calculate and set radiator fan output
 void setRadiatorFanOutput() {
-    if (currentTempCelsius >= fanMaximumEngineTemperature) {
+    if (currentEngineTempCelsius >= fanMaximumEngineTemperature) {
         fanPercentageOutput = 100;
-    } else if (currentTempCelsius > fanMinimumEngineTemperature) {
-        int degreesAboveMinimum = currentTempCelsius - fanMinimumEngineTemperature;
+    } else if (currentEngineTempCelsius > fanMinimumEngineTemperature) {
+        int degreesAboveMinimum = currentEngineTempCelsius - fanMinimumEngineTemperature;
         fanPercentageOutput = (degreesAboveMinimum / (fanMaximumEngineTemperature - fanMinimumEngineTemperature)) * 100;
     } else {
         fanPercentageOutput = 0;
@@ -212,19 +223,28 @@ void setRadiatorFanOutput() {
 
     // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
     if (fanPercentageOutput != 0 && currentRpm > 500) {
-        SERIAL_PORT_MONITOR.println("Turning on PWM fan bits here");
+        fanPwmPinValue = fanPercentageOutput * 2.55;
     } else {
-        SERIAL_PORT_MONITOR.println("Turning off fan via PWM here");
+        fanPwmPinValue = 0;
     }
+
+    // Write out the actual pin value, the pin will maintain this output until the next update
+    analogWrite(fanDriverPwmSignalPin, fanPwmPinValue);
+}
+
+// Function - Get the current engine bay electronics temp
+void getEngineElectronicsTemp() {
+
 }
 
 // Define our timed actions
-TimedAction calculateRpmThread         = TimedAction(20,calculateRpm);
-TimedAction writeRpmThread             = TimedAction(10,canWriteRpm);
-TimedAction writeTempThread            = TimedAction(10,canWriteTemp);
-TimedAction writeMiscThread            = TimedAction(10,canWriteMisc);
-TimedAction setRadiatorFanOutputThread = TimedAction(10000,setRadiatorFanOutput);
-TimedAction debugReportTempAndFanDebug = TimedAction(1000,reportTempAndFanDebug);
+TimedAction calculateRpmThread             = TimedAction(20,calculateRpm);
+TimedAction writeRpmThread                 = TimedAction(10,canWriteRpm);
+TimedAction writeTempThread                = TimedAction(10,canWriteTemp);
+TimedAction writeMiscThread                = TimedAction(10,canWriteMisc);
+TimedAction setRadiatorFanOutputThread     = TimedAction(5000,setRadiatorFanOutput);
+TimedAction getEngineElectronicsTempThread = TimedAction(5000,getEngineElectronicsTemp);
+TimedAction debugOutputThread              = TimedAction(1000,reportDebugInfo);
 
 // Our main setup stanza
 void setup() {
@@ -247,6 +267,20 @@ void setup() {
     // Configure interrupt for RPM signal input
     pinMode(rpmSignalPin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
+
+    // Configure pins for output to fan controller
+    pinMode(fanDriverPwmSignalPin, OUTPUT);
+    pinMode(fanDriverPwmDirectionPin, OUTPUT);
+    digitalWrite(fanDriverPwmDirectionPin, LOW);
+
+    // Configure the temperature sensor
+    if (!tempSensorEngineElectronics.begin(0x18)) {
+        Serial.println("Couldn't find MCP9808 temp sensor.");
+        // while (1);
+    } else {
+        Serial.println("Found MCP9808 temp sensor.");
+        tempSensorEngineElectronics.setResolution(3);
+    }
 
     // Configure masks and filters for Nissan side to reduce noise
     // There are two masks in the mcp2515 which both need to be set
@@ -272,7 +306,8 @@ void loop() {
     writeTempThread.check();
     writeMiscThread.check();
     setRadiatorFanOutputThread.check();
-    debugReportTempAndFanDebug.check();
+    getEngineElectronicsTempThread.check();
+    debugOutputThread.check();
 
     // Update the values we are looking for from Nissan CAN
     updateNissanDataFromCan();
