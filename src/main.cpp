@@ -38,9 +38,9 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 
 #include <SPI.h>
 #include <Wire.h>
-#include <TimedAction.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
+#include <ptScheduler.h>
 #include "functions_read.h"
 #include "functions_write.h"
 
@@ -63,11 +63,7 @@ volatile unsigned long latestRpmPulseTime = micros();   // Will store latest ISR
 volatile unsigned long latestRpmPulseCounter = 0;       // Will store latest the number of pulses counted
 unsigned long previousRpmPulseTime;                     // Will store previous ISR micros value for calculations
 unsigned long previousRpmPulseCounter;                  // Will store previous the number of pulses counted
-int currentRpm;                                         // Will store the current RPM value
-int previousRpm;                                        // Will store the previous RPM value
-int multipliedRpm;                                      // The RPM value to represent in CAN payload which the cluster is expecting
-float rpmHexConversionMultipler = 6.55;                 // Default multiplier set to a sensible value for accuracy at lower RPM.
-                                                        // This will be overriden via the formula based multiplier later on if used.
+int currentRpm;                                         // Will store the current RPM value                                                 // This will be overriden via the formula based multiplier later on if used.
 
 // Define variables used for radiator fan control
 const float fanMinimumEngineTemperature = 90;           // Temperature in celcius when fan will begin opperation
@@ -90,9 +86,7 @@ int consumptionCounter = 0;
 int consumptionIncrease = 40;
 int consumptionValue = 0;
 
-// Define CAN payloads for each use case
-unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};    //RPM
-unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Temp
+// Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
 
 // Create the MCP9808 temperature sensor object
@@ -112,25 +106,6 @@ void calculateRpm(){
     // Set previous variables to current values for next loop
     previousRpmPulseCounter = latestRpmPulseCounter;
     previousRpmPulseTime = latestRpmPulseTime;
-}
-
-// Function - Write RPM value to BMW CAN bus
-void canWriteRpm(){
-    if (currentRpm != 0 && abs(currentRpm - previousRpm) < 750){     // We see some odd values from time to time so lets filter them out
-        rpmHexConversionMultipler = (-0.00005540102040816370 * currentRpm) + 6.70061224489796;
-        multipliedRpm = currentRpm * rpmHexConversionMultipler;
-        canPayloadRpm[2] = multipliedRpm;            //LSB
-        canPayloadRpm[3] = (multipliedRpm >> 8);     //MSB
-    }
-
-    CAN_BMW.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
-    previousRpm = currentRpm;
-}
-
-// Function - Write temp value to BMW CAN
-void canWriteTemp(){
-    canPayloadTemp[1] = (currentEngineTempCelsius + 48.373) / 0.75;
-    CAN_BMW.sendMsgBuf(0x329, 0, 8, canPayloadTemp);
 }
 
 // Function - Write misc payload to BMW CAN
@@ -162,7 +137,7 @@ void updateRpmPulse() {
 }
 
 // Function - Print temp reading to serial monitor
-void reportDebugInfo() {
+void outputDebugInfo() {
     SERIAL_PORT_MONITOR.print("Temperature is: ");
     SERIAL_PORT_MONITOR.print(currentEngineTempCelsius);
     SERIAL_PORT_MONITOR.print("\tFan Percentage is: ");
@@ -233,19 +208,14 @@ void setRadiatorFanOutput() {
     analogWrite(fanDriverPwmSignalPin, fanPwmPinValue);
 }
 
-// Function - Get the current engine bay electronics temp
-void getEngineElectronicsTemp() {
-
-}
-
-// Define our timed actions
-TimedAction calculateRpmThread             = TimedAction(20,calculateRpm);
-TimedAction writeRpmThread                 = TimedAction(10,canWriteRpm);
-TimedAction writeTempThread                = TimedAction(10,canWriteTemp);
-TimedAction writeMiscThread                = TimedAction(10,canWriteMisc);
-TimedAction setRadiatorFanOutputThread     = TimedAction(5000,setRadiatorFanOutput);
-TimedAction getEngineElectronicsTempThread = TimedAction(5000,getEngineElectronicsTemp);
-TimedAction debugOutputThread              = TimedAction(1000,reportDebugInfo);
+// Define our pretty tiny scheduler objects
+ptScheduler ptCalculateRpm              = ptScheduler(PT_TIME_20MS);
+ptScheduler ptCanWriteRpm               = ptScheduler(PT_TIME_10MS);
+ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
+ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
+ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
+ptScheduler ptOutputDebugInfo           = ptScheduler(PT_TIME_1S);
 
 // Our main setup stanza
 void setup() {
@@ -301,14 +271,34 @@ void setup() {
 
 // Our main loop
 void loop() {
-    // Perform timed action checks
-    calculateRpmThread.check();
-    writeRpmThread.check();
-    writeTempThread.check();
-    writeMiscThread.check();
-    setRadiatorFanOutputThread.check();
-    getEngineElectronicsTempThread.check();
-    debugOutputThread.check();
+    // Check the pretty tiny scheduler tasks and call as needed
+    if (ptCalculateRpm.call()) {
+        calculateRpm();
+    }
+
+    if (ptCanWriteRpm.call()) {
+        canWriteRpm(currentRpm, CAN_BMW);
+    }
+
+    if (ptCanWriteTemp.call()) {
+        canWriteTemp(currentEngineTempCelsius, CAN_BMW);
+    }
+
+    if (ptCanWriteMisc.call()) {
+        canWriteMisc();
+    }
+
+    if (ptSetRadiatorFanOutput.call()) {
+        setRadiatorFanOutput();
+    }
+
+    if (ptReadEngineElectronicsTemp.call()) {
+        currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
+    }
+
+    if (ptOutputDebugInfo.call()) {
+        outputDebugInfo();
+    }
 
     // Update the values we are looking for from Nissan CAN
     updateNissanDataFromCan();
