@@ -43,6 +43,7 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 #include <ptScheduler.h>
 #include "functions_read.h"
 #include "functions_write.h"
+#include "functions_do.h"
 
 #define CAN_2515
 
@@ -58,11 +59,6 @@ mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables used specifically for RPM and tachometer
-const int rpmPulsesPerRevolution = 3;                   // Number of pulses on the signal wire per crank revolution
-volatile unsigned long latestRpmPulseTime = micros();   // Will store latest ISR micros value for calculations
-volatile unsigned long latestRpmPulseCounter = 0;       // Will store latest the number of pulses counted
-unsigned long previousRpmPulseTime;                     // Will store previous ISR micros value for calculations
-unsigned long previousRpmPulseCounter;                  // Will store previous the number of pulses counted
 int currentRpm;                                         // Will store the current RPM value                                                 // This will be overriden via the formula based multiplier later on if used.
 
 // Define variables used for radiator fan control
@@ -73,14 +69,6 @@ int fanPwmPinValue = 0;                                 // Will store the PWM pi
 
 // Define other variables
 const int tempAlarmLight = 110;                         // What temperature should the warning light come on at
-int currentEngineTempCelsius;
-int checkEngineLightState;
-unsigned long engineCheckTriggeredMillis = 1;           // Holds the timestamp when engine check was triggered
-const int minimumEngineCheckLightDuration = 3;          // How many seconds should engine check light display for minimum
-                                                        // This is to ensure it illuminates at ignition on as it is too fast
-                                                        // to show on the BMW cluster. This is only useful if you power the
-                                                        // Arduino via accessory power, in my case the check light happens
-                                                        // before the Arduino boots up and can push the CAN payload.
 float currentEngineElectronicsTemp;                     // Will store the temperature in celcius of the engine bay electronics
 int consumptionCounter = 0;
 int consumptionIncrease = 40;
@@ -91,22 +79,6 @@ unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check lig
 
 // Create the MCP9808 temperature sensor object
 Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
-
-// Function - Calculate current RPM
-void calculateRpm(){
-    unsigned long deltaMicros = latestRpmPulseTime - previousRpmPulseTime;
-    unsigned long deltaRpmPulseCounter = latestRpmPulseCounter - previousRpmPulseCounter;
-
-    float microsPerPulse = deltaMicros / deltaRpmPulseCounter;
-
-    float pulsesPerMinute = 60000000 / microsPerPulse;
-
-    currentRpm = pulsesPerMinute / 3;
-
-    // Set previous variables to current values for next loop
-    previousRpmPulseCounter = latestRpmPulseCounter;
-    previousRpmPulseTime = latestRpmPulseTime;
-}
 
 // Function - Write misc payload to BMW CAN
 void canWriteMisc() {
@@ -130,12 +102,6 @@ void canWriteMisc() {
     CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
-// ISR - Update the RPM counter and time via interrupt
-void updateRpmPulse() {
-    latestRpmPulseCounter ++;
-    latestRpmPulseTime = micros();
-}
-
 // Function - Print temp reading to serial monitor
 void outputDebugInfo() {
     SERIAL_PORT_MONITOR.print("Temperature is: ");
@@ -146,44 +112,6 @@ void outputDebugInfo() {
     SERIAL_PORT_MONITOR.println(fanPwmPinValue);
     SERIAL_PORT_MONITOR.print("\tEngine bay electronics temp is: ");
     SERIAL_PORT_MONITOR.println(currentEngineElectronicsTemp);
-}
-
-// Function - Read latest values from Nissan CAN
-void updateNissanDataFromCan() {
-    unsigned char len = 0;
-    unsigned char buf[8];
-
-    if (CAN_MSGAVAIL == CAN_NISSAN.checkReceive()) {
-        CAN_NISSAN.readMsgBuf(&len, buf);
-
-        unsigned long canId = CAN_NISSAN.getCanId();
-
-        // Get the current coolant temperature and engine check light state
-        if (canId == 0x551) {
-            currentEngineTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
-                                                    // data from NDSIII temperature so -40 it is
-        } else if (canId == 0x160) {
-            if (buf[6] == 192) {                    // Hex C0, check engine light is off
-                if (millis() > (engineCheckTriggeredMillis + (minimumEngineCheckLightDuration * 1000))) {
-                    checkEngineLightState = 0;
-                }
-            }
-            if (buf[6] == 224) {                    // Hex E0, check engine light is on
-                checkEngineLightState = 2;
-                engineCheckTriggeredMillis = millis();
-            }
-        }
-        
-        // SERIAL_PORT_MONITOR.print("0x");
-        // SERIAL_PORT_MONITOR.print(canId, HEX);
-        // SERIAL_PORT_MONITOR.print("\t");
-
-        // for (int i = 0; i < len; i++) { // print the data
-        //     SERIAL_PORT_MONITOR.print(buf[i], HEX);
-        //     SERIAL_PORT_MONITOR.print("\t");
-        // }
-        // SERIAL_PORT_MONITOR.println();
-    }
 }
 
 // Function - Calculate and set radiator fan output
@@ -273,7 +201,7 @@ void setup() {
 void loop() {
     // Check the pretty tiny scheduler tasks and call as needed
     if (ptCalculateRpm.call()) {
-        calculateRpm();
+        currentRpm = calculateRpm();
     }
 
     if (ptCanWriteRpm.call()) {
@@ -301,5 +229,5 @@ void loop() {
     }
 
     // Update the values we are looking for from Nissan CAN
-    updateNissanDataFromCan();
+    readNissanDataFromCan(CAN_NISSAN);
 }
