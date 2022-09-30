@@ -17,16 +17,17 @@ float readEngineElectronicsTemp(Adafruit_MCP9808 t) {
  * Function - Read latest values from Nissan CAN
  *
  */
-int currentEngineTempCelsius;
+int engineTempCelsius;
 int checkEngineLightState;
-unsigned long engineCheckTriggeredMillis = 1;           // Holds the timestamp when engine check was triggered
-const int minimumEngineCheckLightDuration = 3;          // How many seconds should engine check light display for minimum
-                                                        // This is to ensure it illuminates at ignition on as it is too fast
-                                                        // to show on the BMW cluster. This is only useful if you power the
-                                                        // Arduino via accessory power, in my case the check light happens
-                                                        // before the Arduino boots up and can push the CAN payload.
+unsigned long engineCheckTriggeredMillis = 1;               // Holds the timestamp when engine check was triggered
+const int minimumEngineCheckLightDuration = 3;              // How many seconds should engine check light display for minimum
+                                                            // This is to ensure it illuminates at ignition on as it is too fast
+                                                            // to show on the BMW cluster. This is only useful if you power the
+                                                            // Arduino via accessory power, in my case the check light happens
+                                                            // before the Arduino boots up and can push the CAN payload.
 
-int, int readNissanDataFromCan(mcp2515_can can) {
+nissanCanValues readNissanDataFromCan(mcp2515_can can) {
+    nissanCanValues nissanCanData;                          // Holds the data to return to caller
     unsigned char len = 0;
     unsigned char buf[8];
 
@@ -37,16 +38,16 @@ int, int readNissanDataFromCan(mcp2515_can can) {
 
         // Get the current coolant temperature and engine check light state
         if (canId == 0x551) {
-            currentEngineTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
+            nissanCanData.engineTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
                                                           // data from NDSIII temperature so -40 it is
         } else if (canId == 0x160) {
             if (buf[6] == 192) {                    // Hex C0, check engine light is off
                 if (millis() > (engineCheckTriggeredMillis + (minimumEngineCheckLightDuration * 1000))) {
-                    checkEngineLightState = 0;
+                    nissanCanData.checkEngineLightState = 0;
                 }
             }
             if (buf[6] == 224) {                    // Hex E0, check engine light is on
-                checkEngineLightState = 2;
+                nissanCanData.checkEngineLightState = 2;
                 engineCheckTriggeredMillis = millis();
             }
         }
@@ -61,4 +62,5 @@ int, int readNissanDataFromCan(mcp2515_can can) {
         // }
         // SERIAL_PORT_MONITOR.println();
     }
+    return nissanCanData;
 }

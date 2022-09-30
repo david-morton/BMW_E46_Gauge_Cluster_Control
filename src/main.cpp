@@ -62,6 +62,8 @@ mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 int currentRpm;                                         // Will store the current RPM value                                                 // This will be overriden via the formula based multiplier later on if used.
 
 // Define variables used for radiator fan control
+int currentEngineTempCelsius;
+int currentCheckEngineLightState;
 const float fanMinimumEngineTemperature = 90;           // Temperature in celcius when fan will begin opperation
 const float fanMaximumEngineTemperature = 105;          // Temperature in celcius when fan will be opperating at maximum power
 float fanPercentageOutput = 0.0;                        // Will store the current fan output percentage
@@ -82,7 +84,7 @@ Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
 
 // Function - Write misc payload to BMW CAN
 void canWriteMisc() {
-    canPayloadMisc[0] = checkEngineLightState;      // 2 for check engine light
+    canPayloadMisc[0] = currentCheckEngineLightState;      // 2 for check engine light
                                                     // 16 for EML light
                                                     // 18 for check engine AND EML
                                                     // 0 for neither
@@ -229,5 +231,8 @@ void loop() {
     }
 
     // Update the values we are looking for from Nissan CAN
-    readNissanDataFromCan(CAN_NISSAN);
+    nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
+
+    currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
+    currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 }
