@@ -1,10 +1,10 @@
 #include "functions_do.h"
 
-/**
+/****************************************************
  *
  * ISR - Update the RPM counter and time via interrupt
  *
- */
+ ****************************************************/
 volatile unsigned long latestRpmPulseTime = micros();   // Will store latest ISR micros value for calculations
 volatile unsigned long latestRpmPulseCounter = 0;       // Will store latest the number of pulses counted
 
@@ -13,11 +13,11 @@ void updateRpmPulse() {
     latestRpmPulseTime = micros();
 }
 
-/**
+/****************************************************
  *
  * Function - Calculate the current RPM value from pulses measured via ISR
  *
- */
+ ****************************************************/
 const int rpmPulsesPerRevolution = 3;                   // Number of pulses on the signal wire per crank revolution
 unsigned long previousRpmPulseTime;                     // Will store previous ISR micros value for calculations
 unsigned long previousRpmPulseCounter;                  // Will store previous the number of pulses counted
@@ -35,4 +35,36 @@ int calculateRpm(){
     previousRpmPulseTime = latestRpmPulseTime;
 
     return pulsesPerMinute / 3;
+}
+
+/****************************************************
+ *
+ * Function - Calculate and set radiator fan output
+ *
+  ****************************************************/
+const float fanMinimumEngineTemperature = 90;     // Temperature in celcius when fan will begin opperation
+const float fanMaximumEngineTemperature = 105;    // Temperature in celcius when fan will be opperating at maximum power
+float fanPercentageOutput = 0.0;                  // Will store the current fan output percentage
+int fanPwmPinValue = 0;                           // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
+
+
+void setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
+    if (engineTemp >= fanMaximumEngineTemperature) {
+        fanPercentageOutput = 100;
+    } else if (engineTemp > fanMinimumEngineTemperature) {
+        int degreesAboveMinimum = engineTemp - fanMinimumEngineTemperature;
+        fanPercentageOutput = (degreesAboveMinimum / (fanMaximumEngineTemperature - fanMinimumEngineTemperature)) * 100;
+    } else {
+        fanPercentageOutput = 0;
+    }
+
+    // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
+    if (fanPercentageOutput != 0 && engineRpm > 500) {
+        fanPwmPinValue = fanPercentageOutput * 2.55;
+    } else {
+        fanPwmPinValue = 0;
+    }
+
+    // Write out the actual pin value, the pin will maintain this output until the next update
+    analogWrite(signalPin, fanPwmPinValue);
 }

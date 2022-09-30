@@ -3,8 +3,13 @@
 
 #include <Arduino.h>
 
-// Function Definitions
+/****************************************************
+ *
+ * Function Prototypes
+ *
+ ****************************************************/
 int calculateRpm();
 void updateRpmPulse();
+void setRadiatorFanOutput(int, int, byte);
 
 #endif

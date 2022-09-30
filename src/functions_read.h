@@ -12,7 +12,11 @@ struct nissanCanValues
     int checkEngineLightState;
 };
 
-// Function Definitions
+/****************************************************
+ *
+ * Function Prototypes
+ *
+ ****************************************************/
 float readEngineElectronicsTemp(Adafruit_MCP9808);
 nissanCanValues readNissanDataFromCan(mcp2515_can);
 

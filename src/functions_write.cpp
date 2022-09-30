@@ -1,12 +1,11 @@
 #include "functions_write.h"
 #include <mcp2515_can.h>        // Used for Seeed shields
 
-/**
+/*****************************************************
  *
  * Function - Write the current temperature value to the CAN bus
  *
- */
-
+ ****************************************************/
 unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 void canWriteTemp(int currentEngineTempCelsius, mcp2515_can can){
@@ -14,12 +13,11 @@ void canWriteTemp(int currentEngineTempCelsius, mcp2515_can can){
     can.sendMsgBuf(0x329, 0, 8, canPayloadTemp);
 }
 
-/**
+/*****************************************************
  *
  * Function - Write the current RPM value to the CAN bus
  *
- */
-
+ ****************************************************/
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};
 int previousRpm;                                        // Will store the previous RPM value
 int multipliedRpm;                                      // The RPM value to represent in CAN payload which the cluster is expecting

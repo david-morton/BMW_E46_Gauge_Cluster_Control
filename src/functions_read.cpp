@@ -2,20 +2,20 @@
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
 #include <mcp2515_can.h>        // Used for Seeed shields
 
-/**
+/*****************************************************
  *
  * Function - Get the current engine bay electronics temp
  *
- */
+ ****************************************************/
 float readEngineElectronicsTemp(Adafruit_MCP9808 t) {
     return t.readTempC();
 }
 
-/**
+/*****************************************************
  *
  * Function - Read latest values from Nissan CAN
  *
- */
+ ****************************************************/
 nissanCanValues nissanCanData;                              // Holds the data to return to caller of function
 int engineTempCelsius;
 int checkEngineLightState;

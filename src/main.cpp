@@ -67,10 +67,6 @@ int currentRpm;                                         // Will store the curren
 // Define variables used for radiator fan control
 int currentEngineTempCelsius;
 int currentCheckEngineLightState;
-const float fanMinimumEngineTemperature = 90;           // Temperature in celcius when fan will begin opperation
-const float fanMaximumEngineTemperature = 105;          // Temperature in celcius when fan will be opperating at maximum power
-float fanPercentageOutput = 0.0;                        // Will store the current fan output percentage
-int fanPwmPinValue = 0;                                 // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
 
 // Define other variables
 const int tempAlarmLight = 110;                         // What temperature should the warning light come on at
@@ -107,41 +103,6 @@ void canWriteMisc() {
     CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
-// Function - Print temp reading to serial monitor
-void outputDebugInfo() {
-    SERIAL_PORT_MONITOR.print("Engine temperature is: ");
-    SERIAL_PORT_MONITOR.print(currentEngineTempCelsius);
-    SERIAL_PORT_MONITOR.print("\tFan Percentage is: ");
-    SERIAL_PORT_MONITOR.print(fanPercentageOutput);
-    SERIAL_PORT_MONITOR.print("\tFan pin value is: ");
-    SERIAL_PORT_MONITOR.println(fanPwmPinValue);
-    SERIAL_PORT_MONITOR.print("Engine bay electronics temp is: ");
-    SERIAL_PORT_MONITOR.println(currentEngineElectronicsTemp);
-    SERIAL_PORT_MONITOR.println();
-}
-
-// Function - Calculate and set radiator fan output
-void setRadiatorFanOutput() {
-    if (currentEngineTempCelsius >= fanMaximumEngineTemperature) {
-        fanPercentageOutput = 100;
-    } else if (currentEngineTempCelsius > fanMinimumEngineTemperature) {
-        int degreesAboveMinimum = currentEngineTempCelsius - fanMinimumEngineTemperature;
-        fanPercentageOutput = (degreesAboveMinimum / (fanMaximumEngineTemperature - fanMinimumEngineTemperature)) * 100;
-    } else {
-        fanPercentageOutput = 0;
-    }
-
-    // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
-    if (fanPercentageOutput != 0 && currentRpm > 500) {
-        fanPwmPinValue = fanPercentageOutput * 2.55;
-    } else {
-        fanPwmPinValue = 0;
-    }
-
-    // Write out the actual pin value, the pin will maintain this output until the next update
-    analogWrite(fanDriverPwmSignalPin, fanPwmPinValue);
-}
-
 // Define our pretty tiny scheduler objects
 ptScheduler ptCalculateRpm              = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteRpm               = ptScheduler(PT_TIME_10MS);
@@ -149,7 +110,6 @@ ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
-ptScheduler ptOutputDebugInfo           = ptScheduler(PT_TIME_1S);
 
 // Our main setup stanza
 void setup() {
@@ -243,15 +203,11 @@ void loop() {
     }
 
     if (ptSetRadiatorFanOutput.call()) {
-        setRadiatorFanOutput();
+        setRadiatorFanOutput(currentEngineTempCelsius, currentRpm, fanDriverPwmSignalPin);
     }
 
     if (ptReadEngineElectronicsTemp.call()) {
         currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
-    }
-
-    if (ptOutputDebugInfo.call()) {
-        outputDebugInfo();
     }
 
     // Update the values we are looking for from Nissan CAN
