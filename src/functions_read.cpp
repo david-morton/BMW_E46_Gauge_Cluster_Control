@@ -16,6 +16,7 @@ float readEngineElectronicsTemp(Adafruit_MCP9808 t) {
  * Function - Read latest values from Nissan CAN
  *
  */
+nissanCanValues nissanCanData;                              // Holds the data to return to caller of function
 int engineTempCelsius;
 int checkEngineLightState;
 unsigned long engineCheckTriggeredMillis = 1;               // Holds the timestamp when engine check was triggered
@@ -26,7 +27,6 @@ const int minimumEngineCheckLightDuration = 3;              // How many seconds 
                                                             // before the Arduino boots up and can push the CAN payload.
 
 nissanCanValues readNissanDataFromCan(mcp2515_can can) {
-    nissanCanValues nissanCanData;                          // Holds the data to return to caller
     unsigned char len = 0;
     unsigned char buf[8];
 
@@ -37,15 +37,15 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
 
         // Get the current coolant temperature and engine check light state
         if (canId == 0x551) {
-            nissanCanData.engineTempCelsius = buf[0] - 40;       // Internet info said -48 from hex byte A but does not line up with 
-                                                          // data from NDSIII temperature so -40 it is
+            nissanCanData.engineTempCelsius = buf[0] - 40;      // Internet info said -48 from hex byte A but does not line up with 
+                                                                // data from NDSIII temperature so -40 it is
         } else if (canId == 0x160) {
-            if (buf[6] == 192) {                    // Hex C0, check engine light is off
+            if (buf[6] == 192) {                                // Hex C0, check engine light is off
                 if (millis() > (engineCheckTriggeredMillis + (minimumEngineCheckLightDuration * 1000))) {
                     nissanCanData.checkEngineLightState = 0;
                 }
             }
-            if (buf[6] == 224) {                    // Hex E0, check engine light is on
+            if (buf[6] == 224) {                                // Hex E0, check engine light is on
                 nissanCanData.checkEngineLightState = 2;
                 engineCheckTriggeredMillis = millis();
             }
