@@ -56,7 +56,7 @@ const int SPI_SS_PIN_NISSAN = 10;          // Slave select pin for CAN shield 2 
 const int CAN_INT_PIN = 2;
 const byte rpmSignalPin = 19;              // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 44;     // Digital output pin for PWM signal to radiator fan motor driver board
-const byte fanDriverPwmDirectionPin = 43;  // Digital output pin for PWM direction for radiator fan motor driver board
+const byte fanDriverPwmDirectionPin = 42;  // Digital output pin for PWM direction for radiator fan motor driver board
 
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
