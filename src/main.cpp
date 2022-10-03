@@ -36,9 +36,6 @@ The Arduino will also be used to control the radiator thermo fan via a Cytron MD
 is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 */
 
-// Define a flag for offline development
-bool offlineDebug = true;
-
 #include <SPI.h>
 #include <Wire.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
@@ -61,19 +58,20 @@ const byte fanDriverPwmDirectionPin = 42;  // Digital output pin for PWM directi
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-// Define variables used specifically for RPM and tachometer
-int currentRpm;                                         // Will store the current RPM value                                                 // This will be overriden via the formula based multiplier later on if used.
+// Define variables used specifically for tachometer
+int currentRpm;                         // Will store the current RPM value
 
 // Define variables used for radiator fan control
 int currentEngineTempCelsius;
 int currentCheckEngineLightState;
 
 // Define other variables
-const int tempAlarmLight = 110;                         // What temperature should the warning light come on at
-float currentEngineElectronicsTemp;                     // Will store the temperature in celcius of the engine bay electronics
+const int tempAlarmLight = 110;         // What temperature should the warning light come on at
+float currentEngineElectronicsTemp;     // Will store the temperature in celcius of the engine bay electronics
 int consumptionCounter = 0;
 int consumptionIncrease = 40;
 int consumptionValue = 0;
+int setupRetriesMax = 3;                // The number of times we should loop with delay to configure external items
 
 // Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
@@ -116,26 +114,47 @@ void setup() {
     SERIAL_PORT_MONITOR.begin(115200);
     while(!Serial){};
 
-    // Configure CAN interfaces
-    while (CAN_OK != CAN_BMW.begin(CAN_500KBPS)) {             // init can bus : baudrate = 500k
-        SERIAL_PORT_MONITOR.println("FATAL - BMW CAN init fail, retry...");
-        delay(500);
-        if (offlineDebug == true)
-        {
-            break;
-        }
-    }
-    SERIAL_PORT_MONITOR.println("OK - BMW CAN initialised.");
+    // Configure CAN shield interfaces
+    bool canBmwFound;
+    bool canNissanFound;
 
-    while (CAN_OK != CAN_NISSAN.begin(CAN_500KBPS)) {          // init can bus : baudrate = 500k
-        SERIAL_PORT_MONITOR.println("FATAL - Nissan CAN init fail, retry...");
-        delay(500);
-        if (offlineDebug == true)
-        {
+    SERIAL_PORT_MONITOR.println("INFO: Initialising BMW CAN shield");
+
+    for (int i = 0; i < setupRetriesMax; i++) {
+        bool result = CAN_BMW.begin(CAN_500KBPS);
+        if (result == CAN_OK) {
+            SERIAL_PORT_MONITOR.println("\tOK - BMW CAN shield initialised");
+            canBmwFound = true;
             break;
+        } else if (result != CAN_OK) {
+            SERIAL_PORT_MONITOR.println("\tERROR - BMW CAN shield init failed, retrying ...");
+            canBmwFound = false;
+            delay(1000);
+        }
+        if (i == setupRetriesMax)
+        {
+            SERIAL_PORT_MONITOR.println("\tFATAL - BMW CAN shield init failed");
         }
     }
-    SERIAL_PORT_MONITOR.println("OK - Nissan CAN initialised.");
+    
+    SERIAL_PORT_MONITOR.println("INFO: Initialising Nissan CAN shield");
+
+    for (int i = 0; i < setupRetriesMax; i++) {
+        bool result = CAN_NISSAN.begin(CAN_500KBPS);
+        if (result == CAN_OK) {
+            SERIAL_PORT_MONITOR.println("\tOK - Nissan CAN shield initialised");
+            canNissanFound = true;
+            break;
+        } else if (result != CAN_OK) {
+            SERIAL_PORT_MONITOR.println("\tERROR - Nissan CAN shield init failed, retrying ...");
+            canNissanFound = false;
+            delay(1000);
+        }
+        if (i == setupRetriesMax)
+        {
+            SERIAL_PORT_MONITOR.println("\tFATAL - Nissan CAN shield init failed");
+        }
+    }
 
     // Configure interrupt for RPM signal input
     pinMode(rpmSignalPin, INPUT_PULLUP);
@@ -147,25 +166,27 @@ void setup() {
     digitalWrite(fanDriverPwmDirectionPin, LOW);
 
     // Configure the temperature sensor
-    while (!tempSensorEngineElectronics.begin(0x18)) {
-        SERIAL_PORT_MONITOR.println("FATAL - Unable to find MCP9808 sensor, retry...");
-        delay(500);
-        if (offlineDebug == true)
-        {
+    bool tempSensorFound;
+
+    SERIAL_PORT_MONITOR.println("INFO: Initialising MCP9808 temperature sensor");
+
+    for (int i = 0; i < setupRetriesMax; i++) {
+        bool result = tempSensorEngineElectronics.begin(0x18);
+        if (result == 0) {
+            SERIAL_PORT_MONITOR.println("\tOK - MCP9808 temperature sensor initialised");
+            tempSensorFound = true;
+            tempSensorEngineElectronics.readTempC();
             break;
+        } else if (result != 0) {
+            SERIAL_PORT_MONITOR.println("\tERROR - MCP9808 temperature sensor init failed, retrying ...");
+            tempSensorFound = false;
+            delay(1000);
+        }
+        if (i == setupRetriesMax)
+        {
+            SERIAL_PORT_MONITOR.println("\tFATAL - MCP9808 temperature sensor not found");
         }
     }
-
-    Serial.println("OK - Found MCP9808 temp sensor.");
-    tempSensorEngineElectronics.setResolution(3);
-
-    // if (!tempSensorEngineElectronics.begin(0x18)) {
-    //     Serial.println("FATAL - Couldn't find MCP9808 temp sensor.");
-    //     while (1);
-    // } else {
-    //     Serial.println("OK - Found MCP9808 temp sensor.");
-    //     tempSensorEngineElectronics.setResolution(3);
-    // }
 
     // Configure masks and filters for Nissan side to reduce noise
     // There are two masks in the mcp2515 which both need to be set
