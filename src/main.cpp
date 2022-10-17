@@ -51,15 +51,17 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10;          // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
+
 const byte rpmSignalPin = 19;              // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 44;     // Digital output pin for PWM signal to radiator fan motor driver board
 const byte fanDriverPwmDirectionPin = 42;  // Digital output pin for PWM direction for radiator fan motor driver board
 
+// Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables used specifically for tachometer
-int currentRpm;                         // Will store the current RPM value
+int currentRpm;                         // Will store the current engine RPM value
 
 // Define variables used for radiator fan control
 int currentEngineTempCelsius;
@@ -71,7 +73,8 @@ float currentEngineElectronicsTemp;     // Will store the temperature in celcius
 int consumptionCounter = 0;
 int consumptionIncrease = 40;
 int consumptionValue = 0;
-int setupRetriesMax = 3;                // The number of times we should loop with delay to configure external items
+int setupRetriesMax = 3;                // The number of times we should loop with delay to configure shields etc
+int currentVehicleSpeed = 300;
 
 // Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
@@ -105,6 +108,7 @@ void canWriteMisc() {
 ptScheduler ptCalculateRpm              = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteRpm               = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
+ptScheduler ptCanWriteSpeed             = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
@@ -192,16 +196,16 @@ void setup() {
     // There are two masks in the mcp2515 which both need to be set
     // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
     // 0x551 is where coolant temperature is located
-    // 0x160 is **maybe** where the check engine light is
+    // 0x180 is where the check engine light is
     CAN_NISSAN.init_Mask(0, 0, 0xFFF);
     CAN_NISSAN.init_Filt(0, 0, 0x551);
-    CAN_NISSAN.init_Filt(1, 0, 0x160);
+    CAN_NISSAN.init_Filt(1, 0, 0x180);
 
     CAN_NISSAN.init_Mask(1, 0, 0xFFF);
     CAN_NISSAN.init_Filt(2, 0, 0x551);
-    CAN_NISSAN.init_Filt(3, 0, 0x160);
+    CAN_NISSAN.init_Filt(3, 0, 0x180);
     CAN_NISSAN.init_Filt(4, 0, 0x551);
-    CAN_NISSAN.init_Filt(5, 0, 0x160);
+    CAN_NISSAN.init_Filt(5, 0, 0x180);
 }
 
 // Our main loop
@@ -219,6 +223,10 @@ void loop() {
         canWriteTemp(currentEngineTempCelsius, CAN_BMW);
     }
 
+     if (ptCanWriteSpeed.call()) {
+        canWriteSpeed(currentVehicleSpeed, CAN_NISSAN);
+    }
+
     if (ptCanWriteMisc.call()) {
         canWriteMisc();
     }
@@ -231,9 +239,10 @@ void loop() {
         currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
     }
 
-    // Update the values we are looking for from Nissan CAN
+    // Fetch the latest values from Nissan CAN
     nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
 
+    // Pull the values were are interested in from the Nissan CAN response
     currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
     currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 }
