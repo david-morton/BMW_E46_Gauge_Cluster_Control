@@ -84,13 +84,13 @@ Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
 
 // Function - Write misc payload to BMW CAN
 void canWriteMisc() {
-    canPayloadMisc[0] = currentCheckEngineLightState;      // 2 for check engine light
-                                                    // 16 for EML light
-                                                    // 18 for check engine AND EML
-                                                    // 0 for neither
-    canPayloadMisc[1] = consumptionValue;           // Fuel consumption LSB                                        
-    canPayloadMisc[2] = (consumptionValue >> 8);    // Fuel consumption MSB
-    if (currentEngineTempCelsius >= tempAlarmLight) // Set the red alarm light on the temp gauge if needed
+    canPayloadMisc[0] = currentCheckEngineLightState;   // 2 for check engine light
+                                                        // 16 for EML light
+                                                        // 18 for check engine AND EML
+                                                        // 0 for neither
+    canPayloadMisc[1] = consumptionValue;               // Fuel consumption LSB                                        
+    canPayloadMisc[2] = (consumptionValue >> 8);        // Fuel consumption MSB
+    if (currentEngineTempCelsius >= tempAlarmLight)     // Set the red alarm light on the temp gauge if needed
         canPayloadMisc[3] = 8;
     else
         canPayloadMisc[3] = 0;

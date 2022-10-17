@@ -35,3 +35,17 @@ void canWriteRpm(int currentRpm, mcp2515_can can){
     can.sendMsgBuf(0x316, 0, 8, canPayloadRpm);
     previousRpm = currentRpm;
 }
+
+/*****************************************************
+ *
+ * Function - Write the current speed value to the CAN bus
+ *
+ ****************************************************/
+unsigned char canPayloadSpeed[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+void canWriteSpeed(int currentVehicleSpeed, mcp2515_can can){
+    canPayloadSpeed[4] = currentVehicleSpeed;
+    canPayloadSpeed[5] = currentVehicleSpeed >> 8;
+    can.sendMsgBuf(0x280, 0, 8, canPayloadSpeed);
+    can.sendMsgBuf(0x284, 0, 8, canPayloadSpeed);
+}
