@@ -170,6 +170,9 @@ void setup() {
     // Configure the temperature sensor
     bool tempSensorFound;
 
+    // Configure the pin which drives the check engine LED
+    pinMode(ENGINE_CHECK_LED, OUTPUT);
+
     SERIAL_PORT_MONITOR.println("INFO: Initialising MCP9808 temperature sensor");
 
     for (int i = 0; i < setupRetriesMax; i++) {
@@ -216,8 +219,6 @@ void setup() {
     CAN_BMW.init_Filt(3, 0, 0x1F0);
     CAN_BMW.init_Filt(4, 0, 0x1F0);
     CAN_BMW.init_Filt(5, 0, 0x1F0);
-
-    pinMode(ENGINE_CHECK_LED, OUTPUT);
 }
 
 // Our main loop
