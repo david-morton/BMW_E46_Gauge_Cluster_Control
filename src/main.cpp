@@ -51,10 +51,10 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10;          // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
+const int ENGINE_CHECK_LED = 40;           // Used for an external LED in case we don't trust the dash check light
 
 const byte rpmSignalPin = 19;              // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 44;     // Digital output pin for PWM signal to radiator fan motor driver board
-const byte fanDriverPwmDirectionPin = 42;  // Digital output pin for PWM direction for radiator fan motor driver board
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -74,7 +74,7 @@ int consumptionCounter = 0;
 int consumptionIncrease = 40;
 int consumptionValue = 0;
 int setupRetriesMax = 3;                // The number of times we should loop with delay to configure shields etc
-int currentVehicleSpeed = 300;
+int currentVehicleSpeed = 0;
 
 // Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
@@ -166,9 +166,7 @@ void setup() {
 
     // Configure pins for output to fan controller
     pinMode(fanDriverPwmSignalPin, OUTPUT);
-    pinMode(fanDriverPwmDirectionPin, OUTPUT);
-    digitalWrite(fanDriverPwmDirectionPin, LOW);
-
+        
     // Configure the temperature sensor
     bool tempSensorFound;
 
@@ -192,7 +190,7 @@ void setup() {
         }
     }
 
-    // Configure masks and filters for Nissan side to reduce noise
+    // Configure masks and filters for shields to reduce noise
     // There are two masks in the mcp2515 which both need to be set
     // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
     // 0x551 is where coolant temperature is located
@@ -206,6 +204,20 @@ void setup() {
     CAN_NISSAN.init_Filt(3, 0, 0x180);
     CAN_NISSAN.init_Filt(4, 0, 0x551);
     CAN_NISSAN.init_Filt(5, 0, 0x180);
+
+    // 0x1F0 is where the individual wheel speeds are
+    // https://www.bimmerforums.com/forum/showthread.php?1887229-E46-Can-bus-project
+    CAN_BMW.init_Mask(0, 0, 0xFFF);
+    CAN_BMW.init_Filt(0, 0, 0x1F0);
+    CAN_BMW.init_Filt(1, 0, 0x1F0);
+
+    CAN_BMW.init_Mask(1, 0, 0xFFF);
+    CAN_BMW.init_Filt(2, 0, 0x1F0);
+    CAN_BMW.init_Filt(3, 0, 0x1F0);
+    CAN_BMW.init_Filt(4, 0, 0x1F0);
+    CAN_BMW.init_Filt(5, 0, 0x1F0);
+
+    pinMode(ENGINE_CHECK_LED, OUTPUT);
 }
 
 // Our main loop
@@ -242,7 +254,23 @@ void loop() {
     // Fetch the latest values from Nissan CAN
     nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
 
+    // Fetch the latest values from BMW CAN
+    bmwCanValues currentBmwCanValues = readBmwDataFromCan(CAN_BMW);
+
     // Pull the values were are interested in from the Nissan CAN response
     currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
     currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
+
+    // Pull the values were are interested in from the BMW CAN response
+    currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;
+
+    // Light the external LED check light
+    if ( currentCheckEngineLightState == 2 )
+    {
+        digitalWrite(ENGINE_CHECK_LED, HIGH);
+    } 
+    else
+    {
+        digitalWrite(ENGINE_CHECK_LED, LOW);
+    }    
 }

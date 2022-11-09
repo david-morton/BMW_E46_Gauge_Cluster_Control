@@ -5,11 +5,20 @@
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
 #include <mcp2515_can.h>        // Used for Seeed shields
 
-// Custom data types
+/****************************************************
+ *
+ * Custom Data Types
+ *
+ ****************************************************/
 struct nissanCanValues
 {
     int engineTempCelsius;
     int checkEngineLightState;
+};
+
+struct bmwCanValues
+{
+    int vehicleSpeed;
 };
 
 /****************************************************
@@ -19,5 +28,6 @@ struct nissanCanValues
  ****************************************************/
 float readEngineElectronicsTemp(Adafruit_MCP9808);
 nissanCanValues readNissanDataFromCan(mcp2515_can);
+bmwCanValues readBmwDataFromCan(mcp2515_can);
 
 #endif

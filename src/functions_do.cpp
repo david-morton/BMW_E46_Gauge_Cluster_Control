@@ -45,8 +45,8 @@ int calculateRpm(){
 const float fanMinimumEngineTemperature = 90;     // Temperature in celcius when fan will begin opperation
 const float fanMaximumEngineTemperature = 105;    // Temperature in celcius when fan will be opperating at maximum power
 float fanPercentageOutput = 0.0;                  // Will store the current fan output percentage
+int fanMinimumPercentageOutput = 20;              // A reasonable minimum fan speed to avoid running it too slow
 int fanPwmPinValue = 0;                           // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
-
 
 void setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
     if (engineTemp >= fanMaximumEngineTemperature) {
@@ -54,6 +54,10 @@ void setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
     } else if (engineTemp > fanMinimumEngineTemperature) {
         int degreesAboveMinimum = engineTemp - fanMinimumEngineTemperature;
         fanPercentageOutput = (degreesAboveMinimum / (fanMaximumEngineTemperature - fanMinimumEngineTemperature)) * 100;
+        if (fanPercentageOutput < fanMinimumPercentageOutput)
+        {
+            fanPercentageOutput = fanMinimumPercentageOutput;
+        }
     } else {
         fanPercentageOutput = 0;
     }
