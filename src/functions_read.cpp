@@ -96,22 +96,22 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
 
         // Get the current vehicle wheel speeds
         if (canId == 0x1F0) {
-            // (HEX2DEC(B0)+HEX2DEC(RIGHT(B1,1))*256)/16
-            wheelSpeedFl = (buf[0] + (buf[1] >> 4) * 256) / 16;
-            wheelSpeedFr = (buf[2] + (buf[3] >> 4) * 256) / 16;
-            wheelSpeedRl = (buf[4] + (buf[5] >> 4) * 256) / 16;
-            wheelSpeedRr = (buf[6] + (buf[7] >> 4) * 256) / 16;
+            // Excel based formula for this is (HEX2DEC(B0)+HEX2DEC(RIGHT(B1,1))*256)/16
+            wheelSpeedFl = (buf[0] + (buf[1] & 15) * 256) / 16.0;
+            wheelSpeedFr = (buf[2] + (buf[3] & 15) * 256) / 16.0;
+            wheelSpeedRl = (buf[4] + (buf[5] & 15) * 256) / 16.0;
+            wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
         }
 
         // Calculate the average speed from front wheels and use this as overall vehicle speed
         vehicleSpeed = (wheelSpeedFl + wheelSpeedFr) /2;
 
         // Some debug infos
-        SERIAL_PORT_MONITOR.println(wheelSpeedFl);
-        SERIAL_PORT_MONITOR.println(wheelSpeedFr);
-        SERIAL_PORT_MONITOR.println(wheelSpeedRl);
-        SERIAL_PORT_MONITOR.println(wheelSpeedRr);
-        SERIAL_PORT_MONITOR.println();
+        // SERIAL_PORT_MONITOR.println(wheelSpeedFl);
+        // SERIAL_PORT_MONITOR.println(wheelSpeedFr);
+        // SERIAL_PORT_MONITOR.println(wheelSpeedRl);
+        // SERIAL_PORT_MONITOR.println(wheelSpeedRr);
+        // SERIAL_PORT_MONITOR.println();
 
         // for (int i = 7; i >= 0; i--)
         // {
