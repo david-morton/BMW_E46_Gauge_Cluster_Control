@@ -264,7 +264,6 @@ void loop() {
 
     // Pull the values were are interested in from the BMW CAN response
     currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;
-    SERIAL_PORT_MONITOR.println(currentVehicleSpeed);
 
     // Light the external LED check light
     if ( currentCheckEngineLightState == 2 )
