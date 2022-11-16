@@ -104,22 +104,7 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
         }
 
         // Calculate the average speed from front wheels and use this as overall vehicle speed
-        vehicleSpeed = (wheelSpeedFl + wheelSpeedFr) /2;
-
-        // Some debug infos
-        // SERIAL_PORT_MONITOR.println(wheelSpeedFl);
-        // SERIAL_PORT_MONITOR.println(wheelSpeedFr);
-        // SERIAL_PORT_MONITOR.println(wheelSpeedRl);
-        // SERIAL_PORT_MONITOR.println(wheelSpeedRr);
-        // SERIAL_PORT_MONITOR.println();
-
-        // for (int i = 7; i >= 0; i--)
-        // {
-        //     bool b = bitRead(buf[1], i);
-        //     SERIAL_PORT_MONITOR.print(b);
-        // }
-        // SERIAL_PORT_MONITOR.println();
-        // SERIAL_PORT_MONITOR.println();
+        bmwCanData.vehicleSpeed = (wheelSpeedFl + wheelSpeedFr) / 2;
     }
     return bmwCanData;
 }
