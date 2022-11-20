@@ -40,12 +40,12 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 #include <Wire.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
-#include <ptScheduler.h>
+#include <ptScheduler.h>        // The scheduling library of choice
+#include <Arduino.h>
 #include "functions_read.h"
 #include "functions_write.h"
 #include "functions_do.h"
-
-#define CAN_2515
+#include "functions_display.h"
 
 // Pin assignments all go here
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
@@ -112,11 +112,15 @@ ptScheduler ptCanWriteSpeed             = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
+ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_200MS);
 
 // Our main setup stanza
 void setup() {
     SERIAL_PORT_MONITOR.begin(115200);
     while(!Serial){};
+
+    // Configure the TFT display
+    setupDisplay();
 
     // Configure CAN shield interfaces
     bool canBmwFound;
@@ -252,6 +256,10 @@ void loop() {
         currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
     }
 
+    if (ptUpdateDisplayData.call()) {
+        tftPrintTest();
+    }
+
     // Fetch the latest values from Nissan CAN
     nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
 
@@ -273,5 +281,5 @@ void loop() {
     else
     {
         digitalWrite(ENGINE_CHECK_LED, LOW);
-    }    
+    }
 }
