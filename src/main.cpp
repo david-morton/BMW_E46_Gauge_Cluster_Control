@@ -42,10 +42,13 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
 #include <ptScheduler.h>        // The scheduling library of choice
 #include <Arduino.h>
+
 #include "functions_read.h"
 #include "functions_write.h"
 #include "functions_do.h"
 #include "functions_display.h"
+
+#define CAN_2515
 
 // Pin assignments all go here
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
