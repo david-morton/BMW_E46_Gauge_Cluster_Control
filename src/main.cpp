@@ -36,17 +36,18 @@ The Arduino will also be used to control the radiator thermo fan via a Cytron MD
 is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 */
 
+#include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
 #include <ptScheduler.h>        // The scheduling library of choice
-#include <Arduino.h>
 
 #include "functions_read.h"
 #include "functions_write.h"
 #include "functions_do.h"
 #include "functions_display.h"
+#include "functions_performance.h"
 
 #define CAN_2515
 
@@ -77,7 +78,8 @@ int consumptionCounter = 0;
 int consumptionIncrease = 40;
 int consumptionValue = 0;
 int setupRetriesMax = 3;                // The number of times we should loop with delay to configure shields etc
-int currentVehicleSpeed = 0;
+float currentVehicleSpeed = 0;
+unsigned long currentVehicleSpeedTimestamp;
 
 // Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0};    //Misc (check light, consumption and temp alarm light)
@@ -275,6 +277,10 @@ void loop() {
 
     // Pull the values were are interested in from the BMW CAN response
     currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;
+    currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
+
+    // Pass the current speed and timestamp values into function for performance metrics
+    captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 
     // Light the external LED check light
     if ( currentCheckEngineLightState == 2 )

@@ -18,7 +18,8 @@ struct nissanCanValues
 
 struct bmwCanValues
 {
-    int vehicleSpeed;
+    float vehicleSpeed;
+    unsigned long timestamp;
 };
 
 /****************************************************
