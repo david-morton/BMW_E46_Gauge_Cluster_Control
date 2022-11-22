@@ -10,6 +10,6 @@
  ****************************************************/
 int calculateRpm();
 void updateRpmPulse();
-void setRadiatorFanOutput(int, int, byte);
+int setRadiatorFanOutput(int, int, byte);
 
 #endif

@@ -9,7 +9,7 @@
  *
  ****************************************************/
 
-void tftPrintTest();
+void tftUpdateDisplay(int, int, int, int, float);
 void setupDisplay();
 
 #endif

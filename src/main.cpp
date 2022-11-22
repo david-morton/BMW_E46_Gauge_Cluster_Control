@@ -37,8 +37,6 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 */
 
 #include <Arduino.h>
-#include <SPI.h>
-#include <Wire.h>
 #include <mcp2515_can.h>        // Used for Seeed shields
 #include <Adafruit_MCP9808.h>   // Used for temperature sensor
 #include <ptScheduler.h>        // The scheduling library of choice
@@ -70,6 +68,7 @@ int currentRpm;                         // Will store the current engine RPM val
 // Define variables used for radiator fan control
 int currentEngineTempCelsius;
 int currentCheckEngineLightState;
+int currentFanDutyPercentage;
 
 // Define other variables
 const int tempAlarmLight = 110;         // What temperature should the warning light come on at
@@ -254,7 +253,7 @@ void loop() {
     }
 
     if (ptSetRadiatorFanOutput.call()) {
-        setRadiatorFanOutput(currentEngineTempCelsius, currentRpm, fanDriverPwmSignalPin);
+        currentFanDutyPercentage = setRadiatorFanOutput(currentEngineTempCelsius, currentRpm, fanDriverPwmSignalPin);
     }
 
     if (ptReadEngineElectronicsTemp.call()) {
@@ -262,7 +261,7 @@ void loop() {
     }
 
     if (ptUpdateDisplayData.call()) {
-        tftPrintTest();
+        tftUpdateDisplay(currentEngineTempCelsius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm, getBestZeroToFifty());
     }
 
     // Fetch the latest values from Nissan CAN

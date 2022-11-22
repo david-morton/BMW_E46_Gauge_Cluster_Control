@@ -48,7 +48,7 @@ float fanPercentageOutput = 0.0;                  // Will store the current fan 
 int fanMinimumPercentageOutput = 20;              // A reasonable minimum fan speed to avoid running it too slow
 int fanPwmPinValue = 0;                           // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
 
-void setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
+int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
     if (engineTemp >= fanMaximumEngineTemperature) {
         fanPercentageOutput = 100;
     } else if (engineTemp > fanMinimumEngineTemperature) {
@@ -71,4 +71,6 @@ void setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
 
     // Write out the actual pin value, the pin will maintain this output until the next update
     analogWrite(signalPin, fanPwmPinValue);
+
+    return fanPercentageOutput;
 }

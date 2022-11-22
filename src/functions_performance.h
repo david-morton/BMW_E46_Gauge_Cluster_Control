@@ -8,5 +8,6 @@
  ****************************************************/
 
 void captureAccellerationTimes(unsigned long timestamp, float speed);
+float getBestZeroToFifty();
 
 #endif
