@@ -7,8 +7,8 @@
  * Function - Get the current engine bay electronics temp
  *
  ****************************************************/
-float readEngineElectronicsTemp(Adafruit_MCP9808 t) {
-    return t.readTempC();
+float readEngineElectronicsTemp(Adafruit_MCP9808 temp) {
+    return temp.readTempC();
 }
 
 /*****************************************************

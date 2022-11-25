@@ -9,7 +9,7 @@
  *
  ****************************************************/
 
-void tftUpdateDisplay(int, int, int, int, float);
+void tftUpdateDisplay(int, int, int, int, float, int);
 void setupDisplay();
 
 #endif

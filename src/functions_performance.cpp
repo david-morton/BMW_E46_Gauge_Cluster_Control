@@ -24,13 +24,13 @@ void captureAccellerationTimes(unsigned long timestamp, float speed){
     }
 
     // General debug for update frequency etc
-    SERIAL_PORT_MONITOR.print(timestamp);
-    SERIAL_PORT_MONITOR.print(",");
-    SERIAL_PORT_MONITOR.println(speed);
+    // SERIAL_PORT_MONITOR.print(timestamp);
+    // SERIAL_PORT_MONITOR.print(",");
+    // SERIAL_PORT_MONITOR.println(speed);
 
     // Capture 0-50 speed
     if (speed == 0) {
-        SERIAL_PORT_MONITOR.println("Setting measurement flag to true");
+        // SERIAL_PORT_MONITOR.println("Setting measurement flag to true");
         measuring0To50 = true;
         start0To50 = timestamp;
     }
@@ -38,12 +38,12 @@ void captureAccellerationTimes(unsigned long timestamp, float speed){
         measuring0To50 = false;
         end0To50 = timestamp;
         latest0to50 = end0To50 - start0To50;
-        SERIAL_PORT_MONITOR.print("Detected new 0-50 capture of: ");
+        // SERIAL_PORT_MONITOR.print("Detected new 0-50 capture of: ");
         SERIAL_PORT_MONITOR.println(latest0to50);
     }
     if (latest0to50 < best0to50) {
         best0to50 = latest0to50;
-        SERIAL_PORT_MONITOR.print("New 0-50 time recorded: ");
+        // SERIAL_PORT_MONITOR.print("New 0-50 time recorded: ");
         SERIAL_PORT_MONITOR.println(best0to50);
     }
 }

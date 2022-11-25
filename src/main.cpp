@@ -115,8 +115,8 @@ ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed             = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
-ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
-ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_200MS);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_20MS);
+ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_50MS);
 
 // Our main setup stanza
 void setup() {
@@ -185,19 +185,21 @@ void setup() {
 
     for (int i = 0; i < setupRetriesMax; i++) {
         bool result = tempSensorEngineElectronics.begin(0x18);
-        if (result == 0) {
+        if (result == 1) {
             SERIAL_PORT_MONITOR.println("\tOK - MCP9808 temperature sensor initialised");
             tempSensorFound = true;
-            tempSensorEngineElectronics.readTempC();
+            // tempSensorEngineElectronics.readTempC();
+            tempSensorEngineElectronics.setResolution(3);
             break;
-        } else if (result != 0) {
+        } else if (result != 1) {
             SERIAL_PORT_MONITOR.println("\tERROR - MCP9808 temperature sensor init failed, retrying ...");
             tempSensorFound = false;
             delay(1000);
         }
         if (i == setupRetriesMax)
         {
-            SERIAL_PORT_MONITOR.println("\tFATAL - MCP9808 temperature sensor not found");
+            SERIAL_PORT_MONITOR.print("\tFATAL - MCP9808 temperature sensor not found, returned status ");
+            SERIAL_PORT_MONITOR.println(result);
         }
     }
 
@@ -261,7 +263,7 @@ void loop() {
     }
 
     if (ptUpdateDisplayData.call()) {
-        tftUpdateDisplay(currentEngineTempCelsius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm, getBestZeroToFifty());
+        tftUpdateDisplay(currentEngineTempCelsius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm, getBestZeroToFifty(), currentEngineElectronicsTemp);
     }
 
     // Fetch the latest values from Nissan CAN
