@@ -49,14 +49,15 @@ is a PWM motor controller suitable for brushed DC motors up to a constant 30A.
 
 #define CAN_2515
 
-// Pin assignments all go here
+// Some pin assignments all go here
 const int SPI_SS_PIN_BMW = 9;              // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10;          // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
-const int ENGINE_CHECK_LED = 40;           // Used for an external LED in case we don't trust the dash check light
 
 const byte rpmSignalPin = 19;              // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 44;     // Digital output pin for PWM signal to radiator fan motor driver board
+const byte fanDriverPwmSignalPin = 46;     // Digital output pin for PWM signal to radiator fan motor driver board
+// Temp sensor uses 20 and 21
+// Display uses 47,48,49,51 and 52
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -115,7 +116,7 @@ ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed             = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
-ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_20MS);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_1S);
 ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_50MS);
 
 // Our main setup stanza
@@ -177,9 +178,6 @@ void setup() {
         
     // Configure the temperature sensor
     bool tempSensorFound;
-
-    // Configure the pin which drives the check engine LED
-    pinMode(ENGINE_CHECK_LED, OUTPUT);
 
     SERIAL_PORT_MONITOR.println("INFO: Initialising MCP9808 temperature sensor");
 
@@ -282,14 +280,4 @@ void loop() {
 
     // Pass the current speed and timestamp values into function for performance metrics
     captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
-
-    // Light the external LED check light
-    if ( currentCheckEngineLightState == 2 )
-    {
-        digitalWrite(ENGINE_CHECK_LED, HIGH);
-    } 
-    else
-    {
-        digitalWrite(ENGINE_CHECK_LED, LOW);
-    }
 }
