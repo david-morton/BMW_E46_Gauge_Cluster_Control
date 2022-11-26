@@ -116,8 +116,8 @@ ptScheduler ptCanWriteTemp              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed             = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteMisc              = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput      = ptScheduler(PT_TIME_5S);
-ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_50MS);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
+ptScheduler ptUpdateDisplayData         = ptScheduler(PT_TIME_1S);
 
 // Our main setup stanza
 void setup() {
@@ -258,6 +258,7 @@ void loop() {
 
     if (ptReadEngineElectronicsTemp.call()) {
         currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
+        // SERIAL_PORT_MONITOR.println(currentEngineElectronicsTemp);
     }
 
     if (ptUpdateDisplayData.call()) {

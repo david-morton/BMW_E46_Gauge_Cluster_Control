@@ -28,12 +28,13 @@ void tftUpdateDisplay(int engineTemp, int fanDuty, int vehiclespeed, int engineR
   tft.println("C");
   tft.print("Fan Duty ");
   tft.print(fanDuty);
-  tft.println("%");
+  tft.println("%  ");
   tft.print("\nSpeed ");
   tft.print(vehiclespeed);
-  tft.println(" kph");
+  tft.println(" kph    ");
   tft.print("RPM ");
-  tft.println(engineRpm);
+  tft.print(engineRpm);
+  tft.println("     ");
   tft.print("ECU Temp ");
   tft.print(electronicstemp);
   tft.print(char(247));
@@ -41,5 +42,5 @@ void tftUpdateDisplay(int engineTemp, int fanDuty, int vehiclespeed, int engineR
   tft.setTextSize(1);
   tft.print("Best 0-50 time ");
   tft.print(best0To50 / 1000);
-  tft.println("s");
+  tft.println("s    ");
 }
