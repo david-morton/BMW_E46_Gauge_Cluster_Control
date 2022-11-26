@@ -3,7 +3,8 @@
 
 /*****************************************************
  *
- * Function - Write the current temperature value to the CAN bus
+ * Function - Write the current temperature value to 
+ * the CAN bus for cluster gauge display
  *
  ****************************************************/
 unsigned char canPayloadTemp[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -16,6 +17,7 @@ void canWriteTemp(int currentEngineTempCelsius, mcp2515_can can){
 /*****************************************************
  *
  * Function - Write the current RPM value to the CAN bus
+ * for cluster gauge display
  *
  ****************************************************/
 unsigned char canPayloadRpm[8] =  {0, 0, 0, 0, 0, 0, 0, 0};
