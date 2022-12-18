@@ -1,25 +1,23 @@
 #ifndef FUNCTIONS_READ_H
 #define FUNCTIONS_READ_H
 
+#include <Adafruit_MCP9808.h> // Used for temperature sensor
 #include <Arduino.h>
-#include <Adafruit_MCP9808.h>   // Used for temperature sensor
-#include <mcp2515_can.h>        // Used for Seeed shields
+#include <mcp2515_can.h> // Used for Seeed shields
 
 /****************************************************
  *
  * Custom Data Types
  *
  ****************************************************/
-struct nissanCanValues
-{
-    int engineTempCelsius;
-    int checkEngineLightState;
+struct nissanCanValues {
+  int engineTempCelsius;
+  int checkEngineLightState;
 };
 
-struct bmwCanValues
-{
-    float vehicleSpeed;
-    unsigned long timestamp;
+struct bmwCanValues {
+  float vehicleSpeed;
+  unsigned long timestamp;
 };
 
 /****************************************************

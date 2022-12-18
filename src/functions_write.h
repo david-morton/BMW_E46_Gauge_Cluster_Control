@@ -2,7 +2,7 @@
 #define FUNCTIONS_WRITE_H
 
 #include <Arduino.h>
-#include <mcp2515_can.h>        // Used for Seeed shields
+#include <mcp2515_can.h> // Used for Seeed shields
 
 /****************************************************
  *

@@ -4,46 +4,76 @@
 /*****************************************************
  *
  * Function - Detect interesting speeds and calculate stuff
- * 
+ *
  ****************************************************/
 
-float latest0to50 = 300000;
-float best0to50   = 300000;
+float latest0To50 = 300000;
+float best0To50 = 300000;
 
-bool measuring0To50 = false;
+float latest80To120 = 300000;
+float best80To120 = 300000;
+
+// bool measuring0To50 = false;
 unsigned long start0To50;
 unsigned long end0To50;
 
-float getBestZeroToFifty(){
-    return best0to50;
-}
+unsigned long start80To120;
+unsigned long end80To120;
 
-void captureAccellerationTimes(unsigned long timestamp, float speed){
-    if (speed < 1) {
-        speed = 0;
-    }
+float previousSpeed;
 
-    // General debug for update frequency etc
-    // SERIAL_PORT_MONITOR.print(timestamp);
-    // SERIAL_PORT_MONITOR.print(",");
-    // SERIAL_PORT_MONITOR.println(speed);
+float getBestZeroToFifty() { return best0To50; }
+float getBestEightyToOneTwenty() { return best80To120; }
 
-    // Capture 0-50 speed
-    if (speed == 0) {
-        // SERIAL_PORT_MONITOR.println("Setting measurement flag to true");
-        measuring0To50 = true;
-        start0To50 = timestamp;
+void captureAccellerationTimes(unsigned long speedTimestamp, float speedValue) {
+  if (speedValue < 1) {
+    speedValue = 0;
+  }
+
+  // // Capture start condition 0 to 50
+  // if (speedValue == 0) {
+  //   measuring0To50 = true;
+  //   start0To50 = speedTimestamp;
+  // }
+
+  // // Capture end condition 0 to 50
+  // if (measuring0To50 == true && speedValue >= 50) {
+  //   measuring0To50 = false;
+  //   end0To50 = speedTimestamp;
+  //   latest0To50 = end0To50 - start0To50;
+  //   if (latest0To50 < best0To50) {
+  //     best0To50 = latest0To50;
+  //   }
+  // }
+
+  // Capture start condition 0 to 50
+  if (speedValue > 0 && previousSpeed == 0) {
+    start0To50 = speedTimestamp;
+  }
+
+  // Capture end condition 0 to 50
+  if (speedValue >= 50 && previousSpeed < 50) {
+    end0To50 = speedTimestamp;
+    latest0To50 = end0To50 - start0To50;
+    if (latest0To50 < best0To50) {
+      best0To50 = latest0To50;
     }
-    if (measuring0To50 == true && speed >= 50) {
-        measuring0To50 = false;
-        end0To50 = timestamp;
-        latest0to50 = end0To50 - start0To50;
-        // SERIAL_PORT_MONITOR.print("Detected new 0-50 capture of: ");
-        SERIAL_PORT_MONITOR.println(latest0to50);
+  }
+
+  // Capture start condition 80 to 120
+  if (speedValue >= 80 && previousSpeed < 80) {
+    start80To120 = speedTimestamp;
+  }
+
+  // Capture end condition 80 to 120
+  if (speedValue >= 120 && previousSpeed < 120) {
+    end80To120 = speedTimestamp;
+    latest80To120 = end80To120 - start80To120;
+    if (latest80To120 < best80To120) {
+      best80To120 = latest80To120;
     }
-    if (latest0to50 < best0to50) {
-        best0to50 = latest0to50;
-        // SERIAL_PORT_MONITOR.print("New 0-50 time recorded: ");
-        SERIAL_PORT_MONITOR.println(best0to50);
-    }
+  }
+
+  // Set the previous speed so we can use it for triggers on the next execution
+  previousSpeed = speedValue;
 }
