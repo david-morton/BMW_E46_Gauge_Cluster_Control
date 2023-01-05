@@ -15,7 +15,6 @@ float readEngineElectronicsTemp(Adafruit_MCP9808 temp) { return temp.readTempC()
  *
  ****************************************************/
 nissanCanValues nissanCanData; // Holds the data to return to caller of function
-int engineTempCelsius;
 int checkEngineLightState;
 bool didWeSeeCheckLightOnStart = 0;
 long whenWeSawCheckLightOnStart;
@@ -23,6 +22,15 @@ long whenWeSawCheckLightOnStart;
 nissanCanValues readNissanDataFromCan(mcp2515_can can) {
   unsigned char len = 0;
   unsigned char buf[8];
+
+  // Hard set of MIL after boot
+  if (millis() < 5000) {
+    nissanCanData.checkEngineLightState = 2;
+    SERIAL_PORT_MONITOR.print("Light on at time ");
+    SERIAL_PORT_MONITOR.println(millis());
+  } else {
+    nissanCanData.checkEngineLightState = 0;
+  }
 
   if (CAN_MSGAVAIL == can.checkReceive()) {
     can.readMsgBuf(&len, buf);
@@ -41,28 +49,29 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       //     SERIAL_PORT_MONITOR.print(b);
       // }
 
-      if (bitRead(buf[7], 4) == 1) { // Bit 4 contains check engine light status ie: 0 0 0 1 0 0 0 0
-                                     // where check light is off when the bit is set
-        nissanCanData.checkEngineLightState = 0;
-      }
-      if (bitRead(buf[7], 4) == 0) { // Bit 4 is not set so check light needs to be set on
-        nissanCanData.checkEngineLightState = 2;
-        didWeSeeCheckLightOnStart = 1;
-        whenWeSawCheckLightOnStart = millis();
-      }
+      // if (bitRead(buf[7], 4) == 1) { // Bit 4 contains check engine light status ie: 0 0 0 1 0 0 0 0
+      //                                // where check light is off when the bit is set
+      //   nissanCanData.checkEngineLightState = 0;
+      // }
+      // if (bitRead(buf[7], 4) == 0) { // Bit 4 is not set so check light needs to be set on
+      //   nissanCanData.checkEngineLightState = 2;
+      //   didWeSeeCheckLightOnStart = 1;
+      //   whenWeSawCheckLightOnStart = millis();
+      // }
 
       // This is a hacky solution to show the check light on ignition on
       // (providing Arduino has power before ECU) just so that we can have
       // confidance that the code is working. Debug shows it only sends 2 CAN
       // frames with the check light bit not set (light on). Unsure how this is
       // catered for in the factory setup.
-      if (millis() < (whenWeSawCheckLightOnStart + 3000) && didWeSeeCheckLightOnStart == 1) {
-        nissanCanData.checkEngineLightState = 2;
-      }
+      // if (millis() < (whenWeSawCheckLightOnStart + 3000) && didWeSeeCheckLightOnStart == 1) {
+      //   nissanCanData.checkEngineLightState = 2;
+      // }      
     }
 
     // Debug to capture all Nissan side CAN data (based on active filters set on
-    // the shield) SERIAL_PORT_MONITOR.print("0x");
+    // the shield)
+    // SERIAL_PORT_MONITOR.print("0x");
     // SERIAL_PORT_MONITOR.print(canId, HEX);
     // SERIAL_PORT_MONITOR.print("\t");
 

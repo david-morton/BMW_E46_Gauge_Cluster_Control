@@ -229,13 +229,6 @@ void setup() {
   CAN_BMW.init_Filt(3, 0, 0x1F0);
   CAN_BMW.init_Filt(4, 0, 0x1F0);
   CAN_BMW.init_Filt(5, 0, 0x1F0);
-
-  // Debug to get CAN mode, the beginnings of pulling DTC's
-  byte mode;
-  mode = CAN_NISSAN.getMode();
-  SERIAL_PORT_MONITOR.print("Nissan CAN mode is: ");
-  SERIAL_PORT_MONITOR.println(mode);
-  // CAN_NISSAN.setMode(3);
 }
 
 // Our main loop
