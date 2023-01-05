@@ -26,8 +26,6 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
   // Hard set of MIL after boot
   if (millis() < 5000) {
     nissanCanData.checkEngineLightState = 2;
-    SERIAL_PORT_MONITOR.print("Light on at time ");
-    SERIAL_PORT_MONITOR.println(millis());
   } else {
     nissanCanData.checkEngineLightState = 0;
   }
@@ -66,7 +64,7 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       // catered for in the factory setup.
       // if (millis() < (whenWeSawCheckLightOnStart + 3000) && didWeSeeCheckLightOnStart == 1) {
       //   nissanCanData.checkEngineLightState = 2;
-      // }      
+      // }
     }
 
     // Debug to capture all Nissan side CAN data (based on active filters set on

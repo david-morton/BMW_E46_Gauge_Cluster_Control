@@ -3,11 +3,22 @@
 
 /****************************************************
  *
+ * Custom Data Types
+ *
+ ****************************************************/
+struct performanceData {
+  int timestamp;
+  float speed;
+};
+
+/****************************************************
+ *
  * Function Prototypes
  *
  ****************************************************/
 
 void captureAccellerationTimes(unsigned long timestamp, float speed);
+void captureAccellerationDetailedData(unsigned long timestamp, float speed);
 float getBestZeroToFifty();
 float getBestEightyToOneTwenty();
 

@@ -281,7 +281,7 @@ void loop() {
   currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
-  // Pass the current speed and timestamp values into function for performance
-  // metrics
+  // Pass the current speed and timestamp values into functions for performance metrics
   captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+  captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }

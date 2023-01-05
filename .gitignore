@@ -6,3 +6,4 @@
 *.code-workspace
 .DS_Store
 .clang-format
+*.log
