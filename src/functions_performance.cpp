@@ -69,13 +69,14 @@ void captureAccellerationTimes(unsigned long speedTimestamp, float speedValue) {
 
 // Define an array to hold fine grained performance metric data, this will allow plotting a bit like a dyno chart
 // A larger array will allow a wider speed delta for dyno runs but we are memory bound here
-performanceData performanceDataArray[500];
+const int maxArraySamples = 700;
+performanceData performanceDataArray[maxArraySamples];
 int arrayLocation = 0;
-int sampleResolutionMs = 50; // Record the sample data only every n milliseconds as we don't have much memory
+int sampleResolutionMs = 20; // Record the sample data only every n milliseconds as we don't have much memory
 
 // Define other self explanatory variables
 const float dynoStartSpeed = 25;
-const float dynoEndSpeed = 50;
+const float dynoEndSpeed = 100;
 
 unsigned long dynoStartTimestamp;
 unsigned long dynoMillisElapsed;
@@ -94,14 +95,21 @@ void captureAccellerationDetailedData(unsigned long speedTimestamp, float speedV
     SERIAL_PORT_MONITOR.println("Starting dyno run data logging ...");
   }
 
-  // Log dyno data if we are in an active run and conditions are met
+  // Log dyno data if we are in an active run and conditions are met, tap out if too many samples recorded
   if (dynoRunActive == true && speedValue != previousDynoSpeed &&
       speedTimestamp > (previousSpeedTimestamp + sampleResolutionMs)) {
     dynoMillisElapsed = speedTimestamp - dynoStartTimestamp;
     performanceDataArray[arrayLocation].timestamp = dynoMillisElapsed;
     performanceDataArray[arrayLocation].speed = speedValue;
-    arrayLocation++;
     previousSpeedTimestamp = speedTimestamp;
+    arrayLocation++;
+    // Stop recording if we reach max samples
+    if (arrayLocation == (maxArraySamples - 1)) {
+      SERIAL_PORT_MONITOR.print("Stopping dyno run due to max samples reached.");
+      memset(performanceDataArray, 0, sizeof(performanceDataArray));
+      arrayLocation = 0;
+      dynoRunActive = false;
+    }
   }
 
   // Exit the dyno run if we detect a complete run
