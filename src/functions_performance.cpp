@@ -132,7 +132,7 @@ void captureAccellerationDetailedData(unsigned long speedTimestamp, float speedV
   // Exit the dyno run if we time out
   if (dynoRunActive == true && dynoMillisElapsed > dynoMillisCutofftime) {
     dynoRunActive = false;
-    SERIAL_PORT_MONITOR.println("\nStopping dyno run due to timeout");
+    SERIAL_PORT_MONITOR.println("Stopping dyno run due to timeout");
     SERIAL_PORT_MONITOR.print("dynoMilliselapsed: ");
     SERIAL_PORT_MONITOR.print(dynoMillisElapsed);
     SERIAL_PORT_MONITOR.print(" > ");
