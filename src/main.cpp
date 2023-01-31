@@ -72,6 +72,7 @@ int currentRpm; // Will store the current engine RPM value
 
 // Define variables used for radiator fan control
 int currentEngineTempCelsius;
+int currentOilTempCelcius;
 int currentCheckEngineLightState;
 int currentFanDutyPercentage;
 
@@ -79,12 +80,11 @@ int currentFanDutyPercentage;
 const int tempAlarmLight = 110;     // What temperature should the warning light come on at
 float currentEngineElectronicsTemp; // Will store the temperature in celcius of
                                     // the engine bay electronics
-int consumptionCounter = 0;
-int consumptionIncrease = 40;
-int consumptionValue = 0;
+int consumptionValue = 10;
 int setupRetriesMax = 3; // The number of times we should loop with delay to configure shields etc
 float currentVehicleSpeed = 0;
 unsigned long currentVehicleSpeedTimestamp;
+int currentClutchStatus;
 
 // Define CAN payloads
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Misc (check light, consumption and temp alarm light)
@@ -105,12 +105,6 @@ void canWriteMisc() {
   else
     canPayloadMisc[3] = 0;
 
-  if (consumptionCounter % 1 == 0) {
-    consumptionValue += consumptionIncrease;
-  }
-
-  consumptionCounter++;
-
   CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
@@ -119,6 +113,7 @@ ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
+ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
@@ -213,10 +208,10 @@ void setup() {
   CAN_NISSAN.init_Filt(1, 0, 0x180);
 
   CAN_NISSAN.init_Mask(1, 0, 0xFFF);
-  CAN_NISSAN.init_Filt(2, 0, 0x551);
-  CAN_NISSAN.init_Filt(3, 0, 0x180);
-  CAN_NISSAN.init_Filt(4, 0, 0x551);
-  CAN_NISSAN.init_Filt(5, 0, 0x180);
+  CAN_NISSAN.init_Filt(2, 0, 0x580);
+  CAN_NISSAN.init_Filt(3, 0, 0x551);
+  CAN_NISSAN.init_Filt(4, 0, 0x180);
+  CAN_NISSAN.init_Filt(5, 0, 0x580);
 
   // 0x1F0 is where the individual wheel speeds are
   // https://www.bimmerforums.com/forum/showthread.php?1887229-E46-Can-bus-project
@@ -250,6 +245,10 @@ void loop() {
     canWriteSpeed(currentVehicleSpeed, CAN_NISSAN);
   }
 
+  if (ptCanWriteClutchStatus.call()) {
+    canWriteClutchStatus(currentClutchStatus, CAN_NISSAN);
+  }
+
   if (ptCanWriteMisc.call()) {
     canWriteMisc();
   }
@@ -262,9 +261,9 @@ void loop() {
     currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
   }
 
-  if (ptUpdateDisplayData.call() && millis() > 30000) {
-    tftUpdateDisplay(currentEngineTempCelsius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm,
-                     getBestZeroToFifty(), getBestEightyToOneTwenty(), currentEngineElectronicsTemp);
+  if (ptUpdateDisplayData.call() && millis() > 15000) {
+    tftUpdateDisplay(currentEngineTempCelsius, currentOilTempCelcius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm,
+                     getBestZeroToOneHundred(), getBestEightyToOneTwenty(), currentEngineElectronicsTemp);
   }
 
   // Fetch the latest values from Nissan CAN
@@ -275,6 +274,7 @@ void loop() {
 
   // Pull the values were are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
+  currentOilTempCelcius = currentNissanCanValues.engineTempCelsius;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 
   // Pull the values were are interested in from the BMW CAN response

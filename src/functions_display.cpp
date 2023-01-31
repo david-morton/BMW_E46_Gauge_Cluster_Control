@@ -19,12 +19,16 @@ void setupDisplay() {
   tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
 }
 
-void tftUpdateDisplay(int engineTemp, int fanDuty, int vehiclespeed, int engineRpm, float best0To50,
+void tftUpdateDisplay(int engineTemp, int oilTemp, int fanDuty, int vehiclespeed, int engineRpm, float best0To100,
                       float best80To120, int electronicstemp) {
   tft.setCursor(0, 0);
   tft.setTextSize(2);
   tft.print("Eng Temp ");
   tft.print(engineTemp);
+  tft.print(char(247));
+  tft.println("C");
+  tft.print("Oil Temp ");
+  tft.print(oilTemp);
   tft.print(char(247));
   tft.println("C");
   tft.print("Fan Duty ");
@@ -39,10 +43,10 @@ void tftUpdateDisplay(int engineTemp, int fanDuty, int vehiclespeed, int engineR
   tft.print("ECU Temp ");
   tft.print(electronicstemp);
   tft.print(char(247));
-  tft.println("C\n");
+  tft.println("C");
   tft.setTextSize(1);
-  tft.print("Best 0-50 time ");
-  tft.print(best0To50 / 1000);
+  tft.print("Best 0-100 time ");
+  tft.print(best0To100 / 1000);
   tft.println("s    ");
   tft.print("Best 80-120 time ");
   tft.print(best80To120 / 1000);

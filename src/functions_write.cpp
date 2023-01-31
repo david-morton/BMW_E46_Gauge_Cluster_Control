@@ -51,3 +51,24 @@ void canWriteSpeed(int currentVehicleSpeed, mcp2515_can can) {
   // canPayloadSpeed[5] = speedValue >> 8;
   can.sendMsgBuf(0x284, 0, 8, canPayloadSpeed);
 }
+
+/*****************************************************
+ *
+ * Function - Write the current clutch status to the CAN bus for ECU consumption
+ *
+ ****************************************************/
+unsigned char canPayloadClutchStatus[2] = {255, 255};
+unsigned char canPayloadClutchStatusBig[8] = {255, 255, 255, 255, 255, 255, 255, 255};
+
+void canWriteClutchStatus(int currentClutchStatus, mcp2515_can can) {
+  // can.sendMsgBuf(0x216, 0, 2, canPayloadClutchStatus);
+  can.sendMsgBuf(0x35d, 0, 8, canPayloadClutchStatusBig);
+
+  // Debug to look at the bits which are set on a particular byte
+  // SERIAL_PORT_MONITOR.println();
+  // for (int i = 7; i >= 0; i--)
+  // {
+  //     bool b = bitRead(canPayloadClutchStatus[1], i);
+  //     SERIAL_PORT_MONITOR.print(b);
+  // }
+}

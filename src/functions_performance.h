@@ -19,7 +19,7 @@ struct performanceData {
 
 void captureAccellerationTimes(unsigned long timestamp, float speed);
 void captureAccellerationDetailedData(unsigned long timestamp, float speed);
-float getBestZeroToFifty();
+float getBestZeroToOneHundred();
 float getBestEightyToOneTwenty();
 
 #endif

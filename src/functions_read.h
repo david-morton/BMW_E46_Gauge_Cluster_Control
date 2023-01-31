@@ -12,6 +12,7 @@
  ****************************************************/
 struct nissanCanValues {
   int engineTempCelsius;
+  int oilTempCelcius;
   int checkEngineLightState;
 };
 

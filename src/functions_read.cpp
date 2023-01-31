@@ -38,7 +38,11 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     // Get the current coolant temperature and engine check light state
     if (canId == 0x551) {
       nissanCanData.engineTempCelsius = buf[0] - 40;
-    } else if (canId == 0x180) {
+      }
+    else if (canId == 0x580) {
+      nissanCanData.oilTempCelcius = buf[4] - 40;
+    }
+    else if (canId == 0x180) {
       // Debug to look at the bits which are set on a particular byte
       // SERIAL_PORT_MONITOR.println();
       // for (int i = 7; i >= 0; i--)
@@ -107,16 +111,13 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
 
     // Get the current vehicle wheel speeds
     if (canId == 0x1F0) {
-      // Excel based formula for this is
-      // (HEX2DEC(B0)+HEX2DEC(RIGHT(B1,1))*256)/16
       wheelSpeedFl = (buf[0] + (buf[1] & 15) * 256) / 16.0;
       wheelSpeedFr = (buf[2] + (buf[3] & 15) * 256) / 16.0;
       wheelSpeedRl = (buf[4] + (buf[5] & 15) * 256) / 16.0;
       wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
     }
 
-    // Calculate the average speed from front wheels and use this as overall
-    // vehicle speed
+    // Calculate the average speed from front wheels and use this as overall vehicle speed
     bmwCanData.vehicleSpeed = ((wheelSpeedFl + wheelSpeedFr) / 2) * speedCorrectionFactor;
     bmwCanData.timestamp = millis();
   }
