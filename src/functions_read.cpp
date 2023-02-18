@@ -70,9 +70,7 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       //   nissanCanData.checkEngineLightState = 2;
       // }
     }
-
-    // Debug to capture all Nissan side CAN data (based on active filters set on
-    // the shield)
+    // Debug to capture all Nissan side CAN data (based on active filters set on the shield)
     // SERIAL_PORT_MONITOR.print("0x");
     // SERIAL_PORT_MONITOR.print(canId, HEX);
     // SERIAL_PORT_MONITOR.print("\t");

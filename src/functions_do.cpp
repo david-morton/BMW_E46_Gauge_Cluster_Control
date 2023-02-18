@@ -6,7 +6,7 @@
  *
  ****************************************************/
 volatile unsigned long latestRpmPulseTime = micros(); // Will store latest ISR micros value for calculations
-volatile unsigned long latestRpmPulseCounter = 0;     // Will store latest the number of pulses counted
+volatile unsigned long latestRpmPulseCounter = 0;     // Will store latest number of pulses counted
 
 void updateRpmPulse() {
   latestRpmPulseCounter++;
@@ -61,8 +61,7 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
     fanPercentageOutput = 0;
   }
 
-  // Here we will actually set the external PWM control based on calculated
-  // percentage output, but only if the engine is running
+  // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
   if (fanPercentageOutput != 0 && engineRpm > 500) {
     fanPwmPinValue = fanPercentageOutput * 2.55;
   } else {
