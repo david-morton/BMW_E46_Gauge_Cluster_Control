@@ -10,6 +10,6 @@
  ****************************************************/
 
 void tftUpdateDisplay(int, int, int, int, int, float, float, int);
-void setupDisplay();
+void initialiseDisplay();
 
 #endif

@@ -69,7 +69,7 @@ void captureAccellerationTimes(unsigned long speedTimestamp, float speedValue) {
 
 // Define an array to hold fine grained performance metric data, this will allow plotting a bit like a dyno chart
 // A larger array will allow a wider speed delta for dyno runs but we are memory bound here
-const int maxArraySamples = 700;
+const int maxArraySamples = 600;
 performanceData performanceDataArray[maxArraySamples];
 int arrayLocation = 0;
 int sampleResolutionMs = 20; // Record the sample data only every n milliseconds as we don't have much memory

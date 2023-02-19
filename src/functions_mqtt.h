@@ -8,7 +8,8 @@
  * Function Prototypes
  *
  ****************************************************/
-int checkConnection();
-int connectToBroker();
+void connectMqttClientToBroker();
+void initialiseEthernetShield();
+void publishMqttMetric(String, String, int);
 
 #endif

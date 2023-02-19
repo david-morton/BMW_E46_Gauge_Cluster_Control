@@ -44,9 +44,6 @@ constant 30A.
 #include <Arduino.h>
 #include <mcp2515_can.h> // Used for Seeed CAN shields
 #include <ptScheduler.h> // The task scheduling library of choice
-#include <SPI.h>
-#include <Ethernet.h>
-#include <PubSubClient.h>   // MQTT Client library
 
 #include "functions_display.h"
 #include "functions_do.h"
@@ -61,20 +58,12 @@ constant 30A.
 const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
-const int ETH_SS_PIN = 31;
 
 const byte rpmSignalPin = 19;          // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 46; // Digital output pin for PWM signal to radiator fan motor driver board
 // Temp sensor uses 20 and 21
 // Display uses 47,48,49,51 and 52
-
-// Configure ethernet and MQTT pieces
-byte eth_mac[] = {  0xA8, 0x61, 0x0A, 0xAE, 0xAB, 0x8D }; // Define the ethernet shielf MAC
-byte eth_ip[] = { 192, 168, 11, 3 };                      // Define the ethernet shield IP
-IPAddress mqtt_server(192, 168, 11, 2);                   // Grafana server address on Raspberry Pi
-const int mqtt_port = 1883;                               // Grafana server port on Raspberry Pi
-EthernetClient eth_client;                                // Create ethernet client
-PubSubClient mqttClient(eth_client);                      // Create MQTT client on ethernet
+// Ethernet uses 31 for slave select
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -131,6 +120,7 @@ ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
 ptScheduler ptUpdateDisplayData = ptScheduler(PT_TIME_1S);
+ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
 ptScheduler ptPublishMqttData = ptScheduler(PT_TIME_100MS);
 
 // Our main setup stanza
@@ -140,25 +130,10 @@ void setup() {
   };
 
   // Configure the TFT display
-  setupDisplay();
+  initialiseDisplay();
 
-  // Configure and enable the ethernet shield
-  SERIAL_PORT_MONITOR.println("INFO - Initialising ethernet shield");
-  Ethernet.init(ETH_SS_PIN);
-  Ethernet.begin(eth_mac, eth_ip);
-
-  char eth_status = Ethernet.hardwareStatus();
-
-  if (eth_status == EthernetW5500) {
-    SERIAL_PORT_MONITOR.println("\tOK - W5500 Ethernet controller detected");
-  } else if (eth_status != EthernetW5500) {
-    SERIAL_PORT_MONITOR.print("\tFATAL - Ethernet status is ");
-    SERIAL_PORT_MONITOR.println(eth_status);
-  }
-
-  // Create MQTT client and connect to the server
-  mqttClient.setServer(mqtt_server, mqtt_port);
-  mqttClient.connect("arduino-client");
+  // Initialise ethernet shield and mqtt client
+  initialiseEthernetShield();
 
   // Configure CAN shield interfaces
   bool canBmwFound;
@@ -298,13 +273,17 @@ void loop() {
                      getBestZeroToOneHundred(), getBestEightyToOneTwenty(), currentEngineElectronicsTemp);
   }
 
-  if (ptPublishMqttData.call()) {
-    String topic = "coolant";
-    int balls_temp = (int)random(40,110);
-    String payload = "{\"temp\":" + String(balls_temp) + "}";
-    mqttClient.publish(topic.c_str(), payload.c_str());
+  if (ptConnectToMqttBroker.call()) {
+    connectMqttClientToBroker();
   }
-  
+
+  if (ptPublishMqttData.call()) {
+    publishMqttMetric("coolant", "temp", currentEngineTempCelsius);
+    publishMqttMetric("ecm", "temp", currentEngineElectronicsTemp);
+    publishMqttMetric("fan", "percentage", currentFanDutyPercentage);
+    publishMqttMetric("rpm", "value", currentRpm);
+    publishMqttMetric("speed", "kph", currentVehicleSpeed);
+  }
 
   // Fetch the latest values from Nissan CAN
   nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
@@ -323,5 +302,5 @@ void loop() {
 
   // Pass the current speed and timestamp values into functions for performance metrics
   captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
-  captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+  // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }
