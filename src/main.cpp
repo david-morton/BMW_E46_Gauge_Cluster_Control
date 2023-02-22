@@ -45,7 +45,6 @@ constant 30A.
 #include <mcp2515_can.h> // Used for Seeed CAN shields
 #include <ptScheduler.h> // The task scheduling library of choice
 
-#include "functions_display.h"
 #include "functions_do.h"
 #include "functions_performance.h"
 #include "functions_read.h"
@@ -119,7 +118,6 @@ ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
-ptScheduler ptUpdateDisplayData = ptScheduler(PT_TIME_1S);
 ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
 ptScheduler ptPublishMqttData = ptScheduler(PT_TIME_100MS);
 
@@ -129,27 +127,19 @@ void setup() {
   while (!Serial) {
   };
 
-  // Configure the TFT display
-  initialiseDisplay();
-
   // Initialise ethernet shield and mqtt client
   initialiseEthernetShield();
 
   // Configure CAN shield interfaces
-  bool canBmwFound;
-  bool canNissanFound;
-
   SERIAL_PORT_MONITOR.println("INFO - Initialising BMW CAN shield");
 
   for (int i = 0; i < setupRetriesMax; i++) {
     bool result = CAN_BMW.begin(CAN_500KBPS);
     if (result == CAN_OK) {
       SERIAL_PORT_MONITOR.println("\tOK - BMW CAN shield initialised");
-      canBmwFound = true;
       break;
     } else if (result != CAN_OK) {
       SERIAL_PORT_MONITOR.println("\tERROR - BMW CAN shield init failed, retrying ...");
-      canBmwFound = false;
       delay(500);
     }
     if (i == setupRetriesMax) {
@@ -163,11 +153,9 @@ void setup() {
     bool result = CAN_NISSAN.begin(CAN_500KBPS);
     if (result == CAN_OK) {
       SERIAL_PORT_MONITOR.println("\tOK - Nissan CAN shield initialised");
-      canNissanFound = true;
       break;
     } else if (result != CAN_OK) {
       SERIAL_PORT_MONITOR.println("\tERROR - Nissan CAN shield init failed, retrying ...");
-      canNissanFound = false;
       delay(500);
     }
     if (i == setupRetriesMax) {
@@ -268,11 +256,6 @@ void loop() {
     currentEngineElectronicsTemp = readEngineElectronicsTemp(tempSensorEngineElectronics);
   }
 
-  if (ptUpdateDisplayData.call() && millis() > 15000) {
-    tftUpdateDisplay(currentEngineTempCelsius, currentOilTempCelcius, currentFanDutyPercentage, currentVehicleSpeed, currentRpm,
-                     getBestZeroToOneHundred(), getBestEightyToOneTwenty(), currentEngineElectronicsTemp);
-  }
-
   if (ptConnectToMqttBroker.call()) {
     connectMqttClientToBroker();
   }
@@ -291,7 +274,7 @@ void loop() {
   // Fetch the latest values from BMW CAN
   bmwCanValues currentBmwCanValues = readBmwDataFromCan(CAN_BMW);
 
-  // Pull the values were are interested in from the Nissan CAN response
+  // Pull the values we are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
   currentOilTempCelcius = currentNissanCanValues.engineTempCelsius;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
@@ -301,6 +284,6 @@ void loop() {
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
   // Pass the current speed and timestamp values into functions for performance metrics
-  captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+  // captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
   // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }
