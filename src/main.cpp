@@ -110,7 +110,7 @@ void canWriteMisc() {
 }
 
 // Define our pretty tiny scheduler objects
-ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_20MS);
+ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
@@ -171,20 +171,16 @@ void setup() {
   pinMode(fanDriverPwmSignalPin, OUTPUT);
 
   // Configure the temperature sensor
-  bool tempSensorFound;
-
   SERIAL_PORT_MONITOR.println("INFO - Initialising MCP9808 temperature sensor");
 
   for (int i = 0; i < setupRetriesMax; i++) {
     bool result = tempSensorEngineElectronics.begin(0x18);
     if (result == 1) {
       SERIAL_PORT_MONITOR.println("\tOK - MCP9808 temperature sensor initialised");
-      tempSensorFound = true;
       tempSensorEngineElectronics.setResolution(3);
       break;
     } else if (result != 1) {
       SERIAL_PORT_MONITOR.println("\tERROR - MCP9808 temperature sensor init failed, retrying ...");
-      tempSensorFound = false;
       delay(500);
     }
     if (i == setupRetriesMax) {
@@ -197,16 +193,16 @@ void setup() {
   // There are two masks in the mcp2515 which both need to be set
   // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
   // 0x551 is where coolant temperature is located
-  // 0x180 is where the check engine light is
+  // 0x7E8 is for results of queried parameters
   CAN_NISSAN.init_Mask(0, 0, 0xFFF);
   CAN_NISSAN.init_Filt(0, 0, 0x551);
-  CAN_NISSAN.init_Filt(1, 0, 0x180);
+  CAN_NISSAN.init_Filt(1, 0, 0x7E8);
 
   CAN_NISSAN.init_Mask(1, 0, 0xFFF);
-  CAN_NISSAN.init_Filt(2, 0, 0x580);
-  CAN_NISSAN.init_Filt(3, 0, 0x551);
-  CAN_NISSAN.init_Filt(4, 0, 0x180);
-  CAN_NISSAN.init_Filt(5, 0, 0x580);
+  CAN_NISSAN.init_Filt(2, 0, 0x551);
+  CAN_NISSAN.init_Filt(3, 0, 0x7E8);
+  CAN_NISSAN.init_Filt(4, 0, 0x551);
+  CAN_NISSAN.init_Filt(5, 0, 0x7E8);
 
   // 0x1F0 is where the individual wheel speeds are
   // https://www.bimmerforums.com/forum/showthread.php?1887229-E46-Can-bus-project
@@ -261,11 +257,11 @@ void loop() {
   }
 
   if (ptPublishMqttData.call()) {
-    publishMqttMetric("coolant", "temp", currentEngineTempCelsius);
-    publishMqttMetric("ecm", "temp", currentEngineElectronicsTemp);
-    publishMqttMetric("fan", "percentage", currentFanDutyPercentage);
+    publishMqttMetric("coolant", "value", currentEngineTempCelsius);
+    publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
+    publishMqttMetric("fan", "value", currentFanDutyPercentage);
     publishMqttMetric("rpm", "value", currentRpm);
-    publishMqttMetric("speed", "kph", currentVehicleSpeed);
+    publishMqttMetric("speed", "value", currentVehicleSpeed);
   }
 
   // Fetch the latest values from Nissan CAN
@@ -276,7 +272,7 @@ void loop() {
 
   // Pull the values we are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
-  currentOilTempCelcius = currentNissanCanValues.engineTempCelsius;
+  currentOilTempCelcius = currentNissanCanValues.oilTempCelcius;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 
   // Pull the values were are interested in from the BMW CAN response
