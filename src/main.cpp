@@ -50,6 +50,7 @@ constant 30A.
 #include "functions_read.h"
 #include "functions_write.h"
 #include "functions_mqtt.h"
+#include "functions_poll_ecm.h"
 
 #define CAN_2515
 
@@ -61,34 +62,32 @@ const int CAN_INT_PIN = 2;
 const byte rpmSignalPin = 19;          // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 46; // Digital output pin for PWM signal to radiator fan motor driver board
 // Temp sensor uses 20 and 21
-// Display uses 47,48,49,51 and 52
 // Ethernet uses 31 for slave select
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-// Define variables used specifically for tachometer
-int currentRpm; // Will store the current engine RPM value
-
-// Define variables used for radiator fan control
-int currentEngineTempCelsius;
+// Define a variety of various variables
+int currentRpm;
+int currentEngineTempCelsius = 0;
 int currentOilTempCelcius;
 int currentCheckEngineLightState;
 int currentFanDutyPercentage;
-
-// Define other variables
-const int tempAlarmLight = 110;     // What temperature should the warning light come on at
-float currentEngineElectronicsTemp; // Will store the temperature in celcius of
-                                    // the engine bay electronics
-int consumptionValue = 10;
-int setupRetriesMax = 3; // The number of times we should loop with delay to configure shields etc
 float currentVehicleSpeed = 0;
 unsigned long currentVehicleSpeedTimestamp;
 int currentClutchStatus;
+float currentEngineElectronicsTemp;  // Will store the temperature in celcius of the engine bay electronics box
+int consumptionValue = 10;
+int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
+const int tempAlarmLight = 110;      // What temperature should the warning light come on at
+bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
+float currentBatteryVoltage;
+int currentGasPedalPosition;
+float currentAfRatioBank1;
 
-// Define CAN payloads
-unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Misc (check light, consumption and temp alarm light)
+// Define misc CAN payload
+unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
 
 // Create the MCP9808 temperature sensor object
 Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
@@ -120,8 +119,12 @@ ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
 ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
 ptScheduler ptPublishMqttData = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_200MS);
+ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
 
-// Our main setup stanza
+// Perform one time setup pieces
 void setup() {
   SERIAL_PORT_MONITOR.begin(115200);
   while (!Serial) {
@@ -189,8 +192,7 @@ void setup() {
     }
   }
 
-  // Configure masks and filters for shields to reduce noise
-  // There are two masks in the mcp2515 which both need to be set
+  // Configure masks and filters for shields to reduce noise. There are two masks in the mcp2515 which both need to be set.
   // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
   // 0x551 is where coolant temperature is located
   // 0x7E8 is for results of queried parameters
@@ -219,6 +221,13 @@ void setup() {
 
 // Our main loop
 void loop() {
+// Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
+  if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0)
+  {
+    initialiseEcmForQueries(CAN_NISSAN);
+    ecmQuerySetupPerformed = true;
+  }
+
   // Check the pretty tiny scheduler tasks and call as needed
   if (ptCalculateRpm.call()) {
     currentRpm = calculateRpm();
@@ -256,12 +265,32 @@ void loop() {
     connectMqttClientToBroker();
   }
 
+  if (ptCanRequestOilTemp.call()) {
+    requestEcmDataOilTemp(CAN_NISSAN);
+  }
+
+  if (ptCanRequestBatteryVoltage.call()) {
+    requestEcmDataBatteryVoltage(CAN_NISSAN);
+  }
+
+  if (ptCanRequestGasPedalPercentage.call()) {
+    requestEcmDataGasPedalPercentage(CAN_NISSAN);
+  }
+
+  if (ptCanRequestAirFuelRatioBank1.call()) {
+    requestEcmDataAfRatioBank1(CAN_NISSAN);
+  }
+
   if (ptPublishMqttData.call()) {
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeed);
+    publishMqttMetric("oilTemp","value", currentOilTempCelcius);
+    publishMqttMetric("batteryVoltage","value", String(currentBatteryVoltage));
+    publishMqttMetric("gasPedalPercent","value", currentGasPedalPosition);
+    publishMqttMetric("afRatioBank1","value", currentAfRatioBank1);
   }
 
   // Fetch the latest values from Nissan CAN
@@ -273,6 +302,9 @@ void loop() {
   // Pull the values we are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
   currentOilTempCelcius = currentNissanCanValues.oilTempCelcius;
+  currentBatteryVoltage = currentNissanCanValues.batteryVoltage;
+  currentGasPedalPosition = currentNissanCanValues.gasPedalPercentage;
+  currentAfRatioBank1 = currentNissanCanValues.airFuelRatioBank1;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 
   // Pull the values were are interested in from the BMW CAN response

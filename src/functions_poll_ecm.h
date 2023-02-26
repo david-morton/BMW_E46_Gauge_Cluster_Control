@@ -10,5 +10,9 @@
  *
  ****************************************************/
 void initialiseEcmForQueries(mcp2515_can);
+void requestEcmDataOilTemp(mcp2515_can);
+void requestEcmDataBatteryVoltage(mcp2515_can);
+void requestEcmDataGasPedalPercentage(mcp2515_can);
+void requestEcmDataAfRatioBank1(mcp2515_can);
 
 #endif

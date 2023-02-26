@@ -57,3 +57,10 @@ void publishMqttMetric(String topic, String metricName, int metricValue) {
     mqttClient.publish(topic.c_str(), payload.c_str());
   }
 }
+
+void publishMqttMetric(String topic, String metricName, String metricValue) {
+  if (mqttBrokerConnected) {
+    String payload = "{\"" + metricName + "\":" + String(metricValue) + "}";
+    mqttClient.publish(topic.c_str(), payload.c_str());
+  }
+}

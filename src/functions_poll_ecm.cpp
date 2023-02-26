@@ -29,5 +29,30 @@ void initialiseEcmForQueries(mcp2515_can CAN_NISSAN) {
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x03,0x22,0x13,0x0B,0x00,0x00,0x00,0x00}); delay(50);
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x03,0x22,0x13,0x0D,0x00,0x00,0x00,0x00}); delay(50);
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x03,0x22,0x13,0x07,0x00,0x00,0x00,0x00}); delay(50);
-  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x02,0x31,0x00,0x00,0x00,0x00,0x00,0x00}); delay(2000);
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x02,0x31,0x00,0x00,0x00,0x00,0x00,0x00}); delay(1000);
+}
+
+/*****************************************************
+ *
+ * Functions - Request for queried metrics from ECM
+ *
+ ****************************************************/
+void requestEcmDataOilTemp(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x1F, 0x00, 0x00, 0x00, 0x00}; // Oil temp
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}
+
+void requestEcmDataBatteryVoltage(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x03, 0x00, 0x00, 0x00, 0x00}; // Battery voltage
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}
+
+void requestEcmDataGasPedalPercentage(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x0D, 0x00, 0x00, 0x00, 0x00}; // Pedal position
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}
+
+void requestEcmDataAfRatioBank1(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x25, 0x00, 0x00, 0x00, 0x00}; // AF Voltage bank 1
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
