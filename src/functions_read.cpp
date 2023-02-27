@@ -73,11 +73,6 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
         // SERIAL_PORT_MONITOR.print("  ");
         // SERIAL_PORT_MONITOR.println(buf[5], HEX);
       }
-
-      // Oil temp looks like 46 hex is 70 and temp was 20 ... 0x7E8   4       62      11      1F      46
-      // Battery voltags                                      0x7E8   4       62      11      3       9D
-      // Pedal position                                       0x7E8   5       62      12      D       0       87
-      // AF Ratio bank 1                                      0x7E8   5       62      12      25      1       B8
     }
   }
   // Compare latest timestamps and zero out values if they are deemed too old

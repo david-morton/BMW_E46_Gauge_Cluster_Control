@@ -54,15 +54,17 @@ constant 30A.
 
 #define CAN_2515
 
-// Some pin assignments
+// Some pin assignments. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select
 const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 19;          // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 46; // Digital output pin for PWM signal to radiator fan motor driver board
-// Temp sensor uses 20 and 21
-// Ethernet uses 31 for slave select
+const byte rpmSignalPin = 19;             // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 46;    // Digital output pin for PWM signal to radiator fan motor driver board
+const byte gaugeOilPressurePin = A8;      // Analogue pin 8
+const byte gaugeFuelPressurePin = A9;     // Analogue pin 9
+const byte gaugeCrankCaseVacuumPin = A10; // Analogue pin 10
+const byte gaugeRadiatorOutletTemp = A11; // Analogue pin 11
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -85,6 +87,8 @@ bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM t
 float currentBatteryVoltage;
 int currentGasPedalPosition;
 float currentAfRatioBank1;
+float currentFuelPressurePsi;
+float currentOilPressurePsi;
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
