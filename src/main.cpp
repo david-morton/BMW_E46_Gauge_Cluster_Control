@@ -51,6 +51,7 @@ constant 30A.
 #include "functions_write.h"
 #include "functions_mqtt.h"
 #include "functions_poll_ecm.h"
+#include "functions_analogue_gauges.h"
 
 #define CAN_2515
 
@@ -59,12 +60,12 @@ const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN 
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 19;             // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 46;    // Digital output pin for PWM signal to radiator fan motor driver board
-const byte gaugeOilPressurePin = A8;      // Analogue pin 8
-const byte gaugeFuelPressurePin = A9;     // Analogue pin 9
-const byte gaugeCrankCaseVacuumPin = A10; // Analogue pin 10
-const byte gaugeRadiatorOutletTemp = A11; // Analogue pin 11
+const byte rpmSignalPin = 19;                 // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 46;        // Digital output pin for PWM signal to radiator fan motor driver board
+const byte gaugeOilPressurePin = A8;          // Analogue pin 8
+const byte gaugeFuelPressurePin = A9;         // Analogue pin 9
+const byte gaugeCrankCaseVacuumPin = A10;     // Analogue pin 10
+const byte gaugeRadiatorOutletTempPin = A11;  // Analogue pin 11
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -89,6 +90,8 @@ int currentGasPedalPosition;
 float currentAfRatioBank1;
 float currentFuelPressurePsi;
 float currentOilPressurePsi;
+float currentCrankCaseVacuumBar;
+float currentRadiatorOutletTemp;
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
@@ -117,16 +120,22 @@ ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
-ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
-ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_2S);
-ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
-ptScheduler ptPublishMqttData = ptScheduler(PT_TIME_100MS);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_200MS);
-ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
+ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
+ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
+ptScheduler ptGaugeReadValueRadiatorOutletTemp = ptScheduler(PT_TIME_5S);
+ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
+ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
+ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
+ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
+ptScheduler ptPublishMqttData5S = ptScheduler(PT_TIME_5S);
 
 // Perform one time setup pieces
 void setup() {
@@ -285,16 +294,42 @@ void loop() {
     requestEcmDataAfRatioBank1(CAN_NISSAN);
   }
 
-  if (ptPublishMqttData.call()) {
+  if (ptGaugeReadValueOilPressure.call()) {
+    currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
+  }
+
+  if (ptGaugeReadValueFuelPressure.call()) {
+    currentFuelPressurePsi = gaugeReadPressurePsi(gaugeFuelPressurePin);
+  }
+
+  if (ptGaugeReadValueRadiatorOutletTemp.call()) {
+    currentRadiatorOutletTemp = gaugeReadTemperatureCelcius(gaugeRadiatorOutletTempPin);
+  }
+
+  if (ptGaugeReadValueCrankCaseVacuum.call()) {
+    currentCrankCaseVacuumBar = gaugeReadVacuumBar(gaugeCrankCaseVacuumPin);
+  }
+
+  if (ptPublishMqttData100Ms.call()) {
+    publishMqttMetric("rpm", "value", currentRpm);
+    publishMqttMetric("speed", "value", currentVehicleSpeed);
+    publishMqttMetric("gasPedalPercent","value", currentGasPedalPosition);
+    publishMqttMetric("afRatioBank1","value", String(currentAfRatioBank1));
+    publishMqttMetric("oilPressure","value", String(currentOilPressurePsi));
+    publishMqttMetric("crankCaseVacuum","value", String(currentCrankCaseVacuumBar));
+  }
+
+  if (ptPublishMqttData1S.call()) {
+    publishMqttMetric("batteryVoltage","value", String(currentBatteryVoltage));
+    publishMqttMetric("fuelPressure","value", String(currentFuelPressurePsi));
+  }
+
+  if (ptPublishMqttData5S.call()) {
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
-    publishMqttMetric("rpm", "value", currentRpm);
-    publishMqttMetric("speed", "value", currentVehicleSpeed);
     publishMqttMetric("oilTemp","value", currentOilTempCelcius);
-    publishMqttMetric("batteryVoltage","value", String(currentBatteryVoltage));
-    publishMqttMetric("gasPedalPercent","value", currentGasPedalPosition);
-    publishMqttMetric("afRatioBank1","value", currentAfRatioBank1);
+    publishMqttMetric("radiatorTemp","value", currentRadiatorOutletTemp);
   }
 
   // Fetch the latest values from Nissan CAN
