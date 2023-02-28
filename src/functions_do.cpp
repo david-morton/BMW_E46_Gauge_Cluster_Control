@@ -73,3 +73,26 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
 
   return fanPercentageOutput;
 }
+
+/****************************************************
+ *
+ * Function - Sound the alarm !!
+ *
+ ****************************************************/
+void alarmEnable(int alarmBuzzerPin, int engineRpm) {
+  if (engineRpm > 500) {
+    tone(alarmBuzzerPin, 4000);
+  } else {
+    SERIAL_PORT_MONITOR.println("Sounding the alarm for 2 seconds");
+    tone(alarmBuzzerPin, 4000, 2000);
+  }
+}
+
+/****************************************************
+ *
+ * Function - Disable the alarm please thanks
+ *
+ ****************************************************/
+void alarmDisable(int alarmBuzzerPin) {
+  noTone(alarmBuzzerPin);
+}

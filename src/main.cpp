@@ -65,33 +65,44 @@ const byte fanDriverPwmSignalPin = 46;        // Digital output pin for PWM sign
 const byte gaugeOilPressurePin = A8;          // Analogue pin 8
 const byte gaugeFuelPressurePin = A9;         // Analogue pin 9
 const byte gaugeCrankCaseVacuumPin = A10;     // Analogue pin 10
-const byte gaugeRadiatorOutletTempPin = A11;  // Analogue pin 11
+                                              // Analogue pin 11 apparently used internaly for tone generation purposes
+const byte gaugeRadiatorOutletTempPin = A12;  // Analogue pin 12
+const byte alarmBuzzerPin = 39;
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-// Define a variety of various variables
-int currentRpm;
-int currentEngineTempCelsius = 0;
-int currentOilTempCelcius;
-int currentCheckEngineLightState;
-int currentFanDutyPercentage;
-float currentVehicleSpeed = 0;
-unsigned long currentVehicleSpeedTimestamp;
-int currentClutchStatus;
-float currentEngineElectronicsTemp;  // Will store the temperature in celcius of the engine bay electronics box
-int consumptionValue = 10;
-int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
-const int tempAlarmLight = 110;      // What temperature should the warning light come on at
-bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
-float currentBatteryVoltage;
-int currentGasPedalPosition;
+// Define variables for current states
 float currentAfRatioBank1;
+float currentBatteryVoltage;
+float currentCrankCaseVacuumBar;
+float currentEngineElectronicsTemp;
 float currentFuelPressurePsi;
 float currentOilPressurePsi;
-float currentCrankCaseVacuumBar;
 float currentRadiatorOutletTemp;
+float currentVehicleSpeed;
+int currentCheckEngineLightState;
+int currentClutchStatus;
+int currentEngineTempCelsius;
+int currentFanDutyPercentage;
+int currentGasPedalPosition;
+int currentOilTempCelcius;
+int currentRpm;
+unsigned long currentVehicleSpeedTimestamp;
+
+// Define alarm state variables
+const float alarmCrankCaseVacuumBar = -0.2;
+const int alarmEngineTempCelcius = 115;
+const int alarmFuelPressurePsi = 48;
+const int alarmOilPressurePsi = 12;
+const int alarmOilTempCelcius = 15;
+
+// Define other variables
+int consumptionValue = 10;
+int setupRetriesMax = 3;              // The number of times we should loop with delay to configure shields etc
+const int tempAlarmLight = 110;       // What temperature should the warning light come on at
+bool ecmQuerySetupPerformed = false;  // Have we sent the setup payloads to ECM to allow us to query various params
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
@@ -116,26 +127,27 @@ void canWriteMisc() {
 }
 
 // Define our pretty tiny scheduler objects
+ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
 ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
-ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
-ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
-ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
-ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
-ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
-ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
-ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
-ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
-ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
-ptScheduler ptGaugeReadValueRadiatorOutletTemp = ptScheduler(PT_TIME_5S);
-ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
+ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
+ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
+ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
+ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
 ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
+ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
+ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
+ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
+ptScheduler ptGaugeReadValueRadiatorOutletTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
 ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
 ptScheduler ptPublishMqttData5S = ptScheduler(PT_TIME_5S);
+ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
+ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 
 // Perform one time setup pieces
 void setup() {
@@ -330,6 +342,14 @@ void loop() {
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
     publishMqttMetric("oilTemp","value", currentOilTempCelcius);
     publishMqttMetric("radiatorTemp","value", currentRadiatorOutletTemp);
+  }
+
+  if (ptAreWeInAlarmState.call()) {
+    if (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
+      alarmEnable(alarmBuzzerPin, currentRpm);
+    } else {
+      alarmDisable(alarmBuzzerPin);
+    }
   }
 
   // Fetch the latest values from Nissan CAN

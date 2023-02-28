@@ -11,5 +11,7 @@
 int calculateRpm();
 void updateRpmPulse();
 int setRadiatorFanOutput(int, int, byte);
+void alarmEnable(int, int);
+void alarmDisable(int);
 
 #endif
