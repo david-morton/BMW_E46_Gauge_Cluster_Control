@@ -45,13 +45,13 @@ constant 30A.
 #include <mcp2515_can.h> // Used for Seeed CAN shields
 #include <ptScheduler.h> // The task scheduling library of choice
 
+#include "functions_analogue_gauges.h"
 #include "functions_do.h"
+#include "functions_mqtt.h"
 #include "functions_performance.h"
+#include "functions_poll_ecm.h"
 #include "functions_read.h"
 #include "functions_write.h"
-#include "functions_mqtt.h"
-#include "functions_poll_ecm.h"
-#include "functions_analogue_gauges.h"
 
 #define CAN_2515
 
@@ -60,13 +60,13 @@ const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN 
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 19;                 // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 46;        // Digital output pin for PWM signal to radiator fan motor driver board
-const byte gaugeOilPressurePin = A8;          // Analogue pin 8
-const byte gaugeFuelPressurePin = A9;         // Analogue pin 9
-const byte gaugeCrankCaseVacuumPin = A10;     // Analogue pin 10
-                                              // Analogue pin 11 apparently used internaly for tone generation purposes
-const byte gaugeRadiatorOutletTempPin = A12;  // Analogue pin 12
+const byte rpmSignalPin = 19;                // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 46;       // Digital output pin for PWM signal to radiator fan motor driver board
+const byte gaugeOilPressurePin = A8;         // Analogue pin 8
+const byte gaugeFuelPressurePin = A9;        // Analogue pin 9
+const byte gaugeCrankCaseVacuumPin = A10;    // Analogue pin 10
+                                             // Analogue pin 11 apparently used internaly for tone generation purposes
+const byte gaugeRadiatorOutletTempPin = A12; // Analogue pin 12
 const byte alarmBuzzerPin = 39;
 
 // Define CAN objects
@@ -100,9 +100,10 @@ const int alarmOilTempCelcius = 15;
 
 // Define other variables
 int consumptionValue = 10;
-int setupRetriesMax = 3;              // The number of times we should loop with delay to configure shields etc
-const int tempAlarmLight = 110;       // What temperature should the warning light come on at
-bool ecmQuerySetupPerformed = false;  // Have we sent the setup payloads to ECM to allow us to query various params
+int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
+const int tempAlarmLight = 110;      // What temperature should the warning light come on at
+bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
+bool inAlarmState = false;           // Are we currently in alarm state making a big noise ?
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
@@ -133,7 +134,8 @@ ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
+ptScheduler ptCanWriteClutchStatus =
+    ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
@@ -217,10 +219,9 @@ void setup() {
     }
   }
 
-  // Configure masks and filters for shields to reduce noise. There are two masks in the mcp2515 which both need to be set.
-  // Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed
-  // 0x551 is where coolant temperature is located
-  // 0x7E8 is for results of queried parameters
+  // Configure masks and filters for shields to reduce noise. There are two masks in the mcp2515 which both need to be
+  // set. Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed 0x551 is where coolant temperature is
+  // located 0x7E8 is for results of queried parameters
   CAN_NISSAN.init_Mask(0, 0, 0xFFF);
   CAN_NISSAN.init_Filt(0, 0, 0x551);
   CAN_NISSAN.init_Filt(1, 0, 0x7E8);
@@ -246,9 +247,8 @@ void setup() {
 
 // Our main loop
 void loop() {
-// Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
-  if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0)
-  {
+  // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
+  if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {
     initialiseEcmForQueries(CAN_NISSAN);
     ecmQuerySetupPerformed = true;
   }
@@ -325,28 +325,30 @@ void loop() {
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeed);
-    publishMqttMetric("gasPedalPercent","value", currentGasPedalPosition);
-    publishMqttMetric("afRatioBank1","value", String(currentAfRatioBank1));
-    publishMqttMetric("oilPressure","value", String(currentOilPressurePsi));
-    publishMqttMetric("crankCaseVacuum","value", String(currentCrankCaseVacuumBar));
+    publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
+    publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
+    publishMqttMetric("oilPressure", "value", String(currentOilPressurePsi));
+    publishMqttMetric("crankCaseVacuum", "value", String(currentCrankCaseVacuumBar));
   }
 
   if (ptPublishMqttData1S.call()) {
-    publishMqttMetric("batteryVoltage","value", String(currentBatteryVoltage));
-    publishMqttMetric("fuelPressure","value", String(currentFuelPressurePsi));
+    publishMqttMetric("batteryVoltage", "value", String(currentBatteryVoltage));
+    publishMqttMetric("fuelPressure", "value", String(currentFuelPressurePsi));
   }
 
   if (ptPublishMqttData5S.call()) {
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
-    publishMqttMetric("oilTemp","value", currentOilTempCelcius);
-    publishMqttMetric("radiatorTemp","value", currentRadiatorOutletTemp);
+    publishMqttMetric("oilTemp", "value", currentOilTempCelcius);
+    publishMqttMetric("radiatorTemp", "value", currentRadiatorOutletTemp);
   }
 
   if (ptAreWeInAlarmState.call()) {
-    if (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
+    if (!inAlarmState &&
+        (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius)) {
       alarmEnable(alarmBuzzerPin, currentRpm);
+      inAlarmState = true;
     } else {
       alarmDisable(alarmBuzzerPin);
     }

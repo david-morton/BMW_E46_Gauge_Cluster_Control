@@ -61,7 +61,8 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
     fanPercentageOutput = 0;
   }
 
-  // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is running
+  // Here we will actually set the external PWM control based on calculated percentage output, but only if the engine is
+  // running
   if (fanPercentageOutput != 0 && engineRpm > 500) {
     fanPwmPinValue = fanPercentageOutput * 2.55;
   } else {
@@ -79,12 +80,15 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
  * Function - Sound the alarm !!
  *
  ****************************************************/
+bool engineNotRunningButAlarmOn = false;
+
 void alarmEnable(int alarmBuzzerPin, int engineRpm) {
   if (engineRpm > 500) {
     tone(alarmBuzzerPin, 4000);
-  } else {
-    SERIAL_PORT_MONITOR.println("Sounding the alarm for 2 seconds");
-    tone(alarmBuzzerPin, 4000, 2000);
+  } else if (engineNotRunningButAlarmOn == false) {
+    SERIAL_PORT_MONITOR.println("Sounding the alarm...");
+    tone(alarmBuzzerPin, 4000, 1000);
+    engineNotRunningButAlarmOn = true;
   }
 }
 
@@ -93,6 +97,4 @@ void alarmEnable(int alarmBuzzerPin, int engineRpm) {
  * Function - Disable the alarm please thanks
  *
  ****************************************************/
-void alarmDisable(int alarmBuzzerPin) {
-  noTone(alarmBuzzerPin);
-}
+void alarmDisable(int alarmBuzzerPin) { noTone(alarmBuzzerPin); }

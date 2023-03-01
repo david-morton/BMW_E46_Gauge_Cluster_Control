@@ -20,7 +20,7 @@ float gasPedalMaxVoltage = 4.85;
 float gasPedalVoltageRange = gasPedalMaxVoltage - gasPedalMinVoltage;
 
 // Define our custom struct for holding the values
-nissanCanValues latestNissanCanValues; 
+nissanCanValues latestNissanCanValues;
 int checkEngineLightState;
 
 nissanCanValues readNissanDataFromCan(mcp2515_can can) {
@@ -42,22 +42,20 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     // Get the current coolant temperature
     if (canId == 0x551) {
       latestNissanCanValues.engineTempCelsius = buf[0] - 40;
-      }
+    }
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
-      if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F){ // Oil temperature
+      if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) { // Oil temperature
         latestNissanCanValues.oilTempCelcius = buf[4] - 50;
-      }
-      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03){ // Battery voltage
-        float batteryVoltage = (buf[4] * 0.0196 + 7.84); // Pretty sure there is a better way of getting our values here ?
-      }
-      else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D){ // Gas pedal position
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) { // Battery voltage
+        float batteryVoltage =
+            (buf[4] * 0.0196 + 7.84); // Pretty sure there is a better way of getting our values here ?
+      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D) { // Gas pedal position
         int raw_value = (buf[4] << 8) | buf[5];
         float voltage = raw_value / 200.0;
         int gasPedalPercentage = ((voltage - gasPedalMinVoltage) / gasPedalVoltageRange) * 100;
         latestNissanCanValues.gasPedalPercentage = gasPedalPercentage;
-      }
-      else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25){ // AF Ratio bank 1
+      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) { // AF Ratio bank 1
         float airFuelRatioBank1 = buf[5];
         latestNissanCanValues.airFuelRatioBank1 = airFuelRatioBank1;
         // SERIAL_PORT_MONITOR.print("Got value for af ratio ");

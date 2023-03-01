@@ -1,8 +1,8 @@
 #include "functions_mqtt.h"
 
-#include <SPI.h>
 #include <Ethernet.h>
-#include <PubSubClient.h>   // MQTT Client library
+#include <PubSubClient.h> // MQTT Client library
+#include <SPI.h>
 
 // Assign the slave select pin. This is pin 10 on the shield which is bent and jumpered
 const int ETH_SS_PIN = 31;
@@ -11,12 +11,12 @@ const int ETH_SS_PIN = 31;
 bool mqttBrokerConnected = false;
 
 // Configure ethernet and MQTT pieces
-byte eth_mac[] = {  0xA8, 0x61, 0x0A, 0xAE, 0xAB, 0x8D }; // Define the ethernet shielf MAC
-byte eth_ip[] = { 192, 168, 11, 3 };                      // Define the ethernet shield IP
-IPAddress mqtt_server(192, 168, 11, 2);                   // Grafana server address on Raspberry Pi
-const int mqtt_port = 1883;                               // Grafana server port on Raspberry Pi
-EthernetClient eth_client;                                // Create ethernet client
-PubSubClient mqttClient(eth_client);                      // Create MQTT client on ethernet
+byte eth_mac[] = {0xA8, 0x61, 0x0A, 0xAE, 0xAB, 0x8D}; // Define the ethernet shielf MAC
+byte eth_ip[] = {192, 168, 11, 3};                     // Define the ethernet shield IP
+IPAddress mqtt_server(192, 168, 11, 2);                // Grafana server address on Raspberry Pi
+const int mqtt_port = 1883;                            // Grafana server port on Raspberry Pi
+EthernetClient eth_client;                             // Create ethernet client
+PubSubClient mqttClient(eth_client);                   // Create MQTT client on ethernet
 
 // Function for setting up the ethernet shield
 void initialiseEthernetShield() {
@@ -36,18 +36,18 @@ void initialiseEthernetShield() {
 
 // Function for creating the MQTT client and connecting to server
 void connectMqttClientToBroker() {
-    if (!mqttClient.connected()) {
-        SERIAL_PORT_MONITOR.println("INFO - Connecting to MQTT broker");
-        mqttClient.setServer(mqtt_server, mqtt_port);
-        mqttClient.setKeepAlive(5);
-        if (mqttClient.connect("arduino-client")) {
-            SERIAL_PORT_MONITOR.println("\tOK - MQTT Client connected");
-            mqttBrokerConnected = true;
-        } else {
-            SERIAL_PORT_MONITOR.println("\tFATAL - MQTT Client not connected");
-            mqttBrokerConnected = false;
-        }
+  if (!mqttClient.connected()) {
+    SERIAL_PORT_MONITOR.println("INFO - Connecting to MQTT broker");
+    mqttClient.setServer(mqtt_server, mqtt_port);
+    mqttClient.setKeepAlive(5);
+    if (mqttClient.connect("arduino-client")) {
+      SERIAL_PORT_MONITOR.println("\tOK - MQTT Client connected");
+      mqttBrokerConnected = true;
+    } else {
+      SERIAL_PORT_MONITOR.println("\tFATAL - MQTT Client not connected");
+      mqttBrokerConnected = false;
     }
+  }
 }
 
 // Publish metric via MQTT
