@@ -87,7 +87,7 @@ void alarmEnable(int alarmBuzzerPin, int engineRpm) {
     tone(alarmBuzzerPin, 4000);
   } else if (engineNotRunningButAlarmOn == false) {
     SERIAL_PORT_MONITOR.println("Sounding the alarm...");
-    tone(alarmBuzzerPin, 4000, 1000);
+    tone(alarmBuzzerPin, 4000, 2000);
     engineNotRunningButAlarmOn = true;
   }
 }

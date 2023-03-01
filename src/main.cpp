@@ -75,6 +75,7 @@ mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define variables for current states
 float currentAfRatioBank1;
+float currentAfRatioBank2;
 float currentBatteryVoltage;
 float currentCrankCaseVacuumBar;
 float currentEngineElectronicsTemp;
@@ -82,6 +83,8 @@ float currentFuelPressurePsi;
 float currentOilPressurePsi;
 float currentRadiatorOutletTemp;
 float currentVehicleSpeed;
+int currentAlphaPercentageBank1;
+int currentAlphaPercentageBank2;
 int currentCheckEngineLightState;
 int currentClutchStatus;
 int currentEngineTempCelsius;
@@ -131,11 +134,13 @@ void canWriteMisc() {
 ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
 ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanWriteClutchStatus =
-    ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
+ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
@@ -306,6 +311,18 @@ void loop() {
     requestEcmDataAfRatioBank1(CAN_NISSAN);
   }
 
+  if (ptCanRequestAirFuelRatioBank2.call()) {
+    requestEcmDataAfRatioBank2(CAN_NISSAN);
+  }
+
+  if (ptCanRequestAirFuelRatioBank1.call()) {
+    requestEcmDataAlphaPercentageBank1(CAN_NISSAN);
+  }
+
+  if (ptCanRequestAirFuelRatioBank2.call()) {
+    requestEcmDataAlphaPercentageBank2(CAN_NISSAN);
+  }
+
   if (ptGaugeReadValueOilPressure.call()) {
     currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
   }
@@ -327,6 +344,9 @@ void loop() {
     publishMqttMetric("speed", "value", currentVehicleSpeed);
     publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
     publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
+    publishMqttMetric("afRatioBank2", "value", String(currentAfRatioBank2));
+    publishMqttMetric("alphaPercentageBank1", "value", currentAlphaPercentageBank1);
+    publishMqttMetric("alphaPercentageBank2", "value", currentAlphaPercentageBank2);
     publishMqttMetric("oilPressure", "value", String(currentOilPressurePsi));
     publishMqttMetric("crankCaseVacuum", "value", String(currentCrankCaseVacuumBar));
   }
@@ -366,6 +386,9 @@ void loop() {
   currentBatteryVoltage = currentNissanCanValues.batteryVoltage;
   currentGasPedalPosition = currentNissanCanValues.gasPedalPercentage;
   currentAfRatioBank1 = currentNissanCanValues.airFuelRatioBank1;
+  currentAfRatioBank2 = currentNissanCanValues.airFuelRatioBank2;
+  currentAlphaPercentageBank1 = currentNissanCanValues.alphaPercentageBank1;
+  currentAlphaPercentageBank2 = currentNissanCanValues.alphaPercentageBank2;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
 
   // Pull the values were are interested in from the BMW CAN response

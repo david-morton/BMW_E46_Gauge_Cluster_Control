@@ -78,3 +78,18 @@ void requestEcmDataAfRatioBank1(mcp2515_can CAN_NISSAN) {
   unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x25, 0x00, 0x00, 0x00, 0x00}; // AF Voltage bank 1
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
+
+void requestEcmDataAfRatioBank2(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x26, 0x00, 0x00, 0x00, 0x00}; // AF Voltage bank 2
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}
+
+void requestEcmDataAlphaPercentageBank1(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x23, 0x00, 0x00, 0x00, 0x00}; // Alpha percentage bank 1
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}
+
+void requestEcmDataAlphaPercentageBank2(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x24, 0x00, 0x00, 0x00, 0x00}; // Alpha percentage bank 2
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}

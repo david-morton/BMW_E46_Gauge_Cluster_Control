@@ -14,7 +14,7 @@ float readEngineElectronicsTemp(Adafruit_MCP9808 temp) { return temp.readTempC()
  * Function - Read latest values from Nissan CAN
  *
  ****************************************************/
-// Define min and max gas pedal voltages as measued from UpRev
+// Define min and max gas pedal voltages as measued from UpRev from which we derive percentage
 float gasPedalMinVoltage = 0.65;
 float gasPedalMaxVoltage = 4.85;
 float gasPedalVoltageRange = gasPedalMaxVoltage - gasPedalMinVoltage;
@@ -45,23 +45,38 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     }
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
-      if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) { // Oil temperature
+      // Oil temperature
+      if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
         latestNissanCanValues.oilTempCelcius = buf[4] - 50;
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) { // Battery voltage
-        float batteryVoltage =
-            (buf[4] * 0.0196 + 7.84); // Pretty sure there is a better way of getting our values here ?
-      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D) { // Gas pedal position
+      // Battery voltage (at the ECM ?? Does not line up with actual battery)
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) {
+        int raw_value = (buf[4] << 8) | buf[5];
+        float batteryVoltage = raw_value / 65.0; // This needs another look !!
+        latestNissanCanValues.batteryVoltage = batteryVoltage;
+      // Gas pedal position
+      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D) {
         int raw_value = (buf[4] << 8) | buf[5];
         float voltage = raw_value / 200.0;
         int gasPedalPercentage = ((voltage - gasPedalMinVoltage) / gasPedalVoltageRange) * 100;
         latestNissanCanValues.gasPedalPercentage = gasPedalPercentage;
-      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) { // AF Ratio bank 1
-        float airFuelRatioBank1 = buf[5];
+      // Air fuel ratio bank 1
+      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) {
+        int raw_value = (buf[4] << 8) | buf[5];
+        float airFuelRatioBank1 = raw_value / 200.0; // This is a voltage at this stage ... needs converting to ratio
         latestNissanCanValues.airFuelRatioBank1 = airFuelRatioBank1;
-        // SERIAL_PORT_MONITOR.print("Got value for af ratio ");
-        // SERIAL_PORT_MONITOR.print(buf[4], HEX);
-        // SERIAL_PORT_MONITOR.print("  ");
-        // SERIAL_PORT_MONITOR.println(buf[5], HEX);
+      // Air fuel ratio bank 2
+      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x26) {
+        int raw_value = (buf[4] << 8) | buf[5];
+        float airFuelRatioBank2 = raw_value / 200.0; // This is a voltage at this stage ... needs converting to ratio
+        latestNissanCanValues.airFuelRatioBank2 = airFuelRatioBank2;
+      // Alpha percentage bank 1
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x23) {
+        int alphaPercentageBank1 = buf[4];
+        latestNissanCanValues.alphaPercentageBank1 = alphaPercentageBank1;
+      // Alpha percentage bank 1
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x24) {
+        int alphaPercentageBank2 = buf[4];
+        latestNissanCanValues.alphaPercentageBank2 = alphaPercentageBank2;
       }
     }
   }

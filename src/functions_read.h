@@ -21,6 +21,8 @@ struct nissanCanValues {
   int gasPedalPercentage = 0;
   float airFuelRatioBank1 = 0;
   float airFuelRatioBank2 = 0;
+  int alphaPercentageBank1 = 0;
+  int alphaPercentageBank2 = 0;
   int throttlePositionBank1 = 0;
   int throttlePositionBank2 = 0;
   float injectorDurationBank1 = 0;
