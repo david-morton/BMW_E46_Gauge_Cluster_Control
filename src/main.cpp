@@ -107,6 +107,8 @@ int setupRetriesMax = 3;             // The number of times we should loop with 
 const int tempAlarmLight = 110;      // What temperature should the warning light come on at
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 bool inAlarmState = false;           // Are we currently in alarm state making a big noise ?
+long loopExecutionCount;
+unsigned long loopExecutionPreviousExecutionMillis;
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
@@ -140,7 +142,8 @@ ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
+ptScheduler ptCanWriteClutchStatus =
+    ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
@@ -155,6 +158,9 @@ ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
 ptScheduler ptPublishMqttData5S = ptScheduler(PT_TIME_5S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
+
+// Define a debug task for monitoring how fast the code is executing
+ptScheduler ptMonitorExecutionTime = ptScheduler(PT_TIME_5S);
 
 // Perform one time setup pieces
 void setup() {
@@ -252,6 +258,21 @@ void setup() {
 
 // Our main loop
 void loop() {
+  // Update counter for execution metrics
+  loopExecutionCount++;
+
+  if (ptMonitorExecutionTime.call()) {
+    int loopFrequencyHz = (loopExecutionCount / (millis() - loopExecutionPreviousExecutionMillis) / 1000);
+    int loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
+    SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
+    SERIAL_PORT_MONITOR.print(loopFrequencyHz);
+    SERIAL_PORT_MONITOR.print(" or every ");
+    SERIAL_PORT_MONITOR.print(loopExecutionMs);
+    SERIAL_PORT_MONITOR.println("ms");
+    loopExecutionCount = 1;
+    loopExecutionPreviousExecutionMillis = millis();
+  }
+
   // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
   if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {
     initialiseEcmForQueries(CAN_NISSAN);
@@ -260,7 +281,9 @@ void loop() {
 
   // Check the pretty tiny scheduler tasks and call as needed
   if (ptCalculateRpm.call()) {
+    detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();
+    attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
   }
 
   if (ptCanWriteRpm.call()) {
