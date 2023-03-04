@@ -1,6 +1,7 @@
 #include "functions_read.h"
 #include <Adafruit_MCP9808.h> // Used for temperature sensor
 #include <mcp2515_can.h>      // Used for Seeed shields
+#include <map>                // Used for defining the AFR lookup table
 
 /*****************************************************
  *
@@ -8,6 +9,44 @@
  *
  ****************************************************/
 float readEngineElectronicsTemp(Adafruit_MCP9808 temp) { return temp.readTempC(); }
+
+/*****************************************************
+ *
+ * Function - Calculate the air/fuel ratio from voltage
+ *
+ ****************************************************/
+// Define lookup table for air/fuel ratios as measured from UpRev
+std::map<int,int> afRatioLookup = {{0,1000},{10,1023},{20,1047},{30,1071},{40,1094},{50,1117},{60,1141},{70,1164},{80,1188},{90,1211},{100,1235},{110,1258},{120,1282},{130,1303},{140,1321},{150,1338},{160,1356},{170,1377},{180,1398},{190,1419},{200,1440},{210,1459},{220,1477},{230,1511},{240,1560},{250,1611},{260,1662},{270,1713},{280,1770},{290,1830},{300,1888},{310,1947},{320,2012},{330,2128},{340,2244},{350,2360},{360,2477},{370,2593},{380,2709},{390,2826},{400,2942},{410,3116},{420,3349},{430,3581},{440,3814},{450,4073},{460,4452},{470,4968},{480,5484},{490,6000}};
+
+float calculateAfRatioFromVoltage(float decimalVoltage){
+  if (decimalVoltage == 0) {
+    return 10.0;
+  } else if (decimalVoltage >= 4.9) {
+    return 60.0;
+  } else {
+    int lookupVoltage = decimalVoltage * 100;
+    lookupVoltage = lookupVoltage / 10 * 10; // Truncate the value so we get the next lowest value from our lookup
+    auto searchResult = afRatioLookup.find(lookupVoltage);
+    int searchAfRatio = searchResult->second;
+    int nextHighestAfRatio = afRatioLookup.find(lookupVoltage + 10)->second;
+    int afRatioDifferance = nextHighestAfRatio - searchAfRatio;
+    float calculatedAfRatio = (searchAfRatio + (((decimalVoltage * 100 - lookupVoltage) / 10) * afRatioDifferance));
+    // SERIAL_PORT_MONITOR.print("Decimal of ");
+    // SERIAL_PORT_MONITOR.print(decimalVoltage);
+    // SERIAL_PORT_MONITOR.print(" means a lookup value of ");
+    // SERIAL_PORT_MONITOR.print(lookupVoltage);
+    // SERIAL_PORT_MONITOR.print(" which is AFR lookup of ");
+    // SERIAL_PORT_MONITOR.print(searchAfRatio);
+    // SERIAL_PORT_MONITOR.print(". The next highest reading is ");
+    // SERIAL_PORT_MONITOR.print(nextHighestAfRatio);
+    // SERIAL_PORT_MONITOR.print(" and the diff is ");
+    // SERIAL_PORT_MONITOR.println(afRatioDifferance);
+    // SERIAL_PORT_MONITOR.print("The exact multiplied AFR is ");
+    // SERIAL_PORT_MONITOR.print(calculatedAfRatio);
+    // SERIAL_PORT_MONITOR.println("\n");
+    return calculatedAfRatio / 100;
+  }
+}
 
 /*****************************************************
  *
@@ -50,7 +89,7 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
         latestNissanCanValues.oilTempCelcius = buf[4] - 50;
       // Battery voltage (at the ECM ?? Does not line up with actual battery)
       } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) {
-        int raw_value = (buf[4] << 8) | buf[5];
+        int raw_value = (buf[3] << 8) | buf[4];
         float batteryVoltage = raw_value / 65.0; // This needs another look !!
         latestNissanCanValues.batteryVoltage = batteryVoltage;
       // Gas pedal position
@@ -62,13 +101,13 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       // Air fuel ratio bank 1
       } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) {
         int raw_value = (buf[4] << 8) | buf[5];
-        float airFuelRatioBank1 = raw_value / 200.0; // This is a voltage at this stage ... needs converting to ratio
-        latestNissanCanValues.airFuelRatioBank1 = airFuelRatioBank1;
+        float airFuelRatioBank1Voltage = raw_value / 200.0;
+        latestNissanCanValues.airFuelRatioBank1 = calculateAfRatioFromVoltage(airFuelRatioBank1Voltage);
       // Air fuel ratio bank 2
       } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x26) {
         int raw_value = (buf[4] << 8) | buf[5];
-        float airFuelRatioBank2 = raw_value / 200.0; // This is a voltage at this stage ... needs converting to ratio
-        latestNissanCanValues.airFuelRatioBank2 = airFuelRatioBank2;
+        float airFuelRatioBank2Voltage = raw_value / 200.0;
+        latestNissanCanValues.airFuelRatioBank2 = calculateAfRatioFromVoltage(airFuelRatioBank2Voltage);
       // Alpha percentage bank 1
       } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x23) {
         int alphaPercentageBank1 = buf[4];
@@ -77,6 +116,10 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x24) {
         int alphaPercentageBank2 = buf[4];
         latestNissanCanValues.alphaPercentageBank2 = alphaPercentageBank2;
+      // Air intake temperature
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x06) {
+        int airIntakeTemp = buf[4] - 50;
+        latestNissanCanValues.airIntakeTemp = airIntakeTemp;
       }
     }
   }

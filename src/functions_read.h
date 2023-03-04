@@ -17,7 +17,7 @@ struct nissanCanValues {
   int oilTempCelcius = 0;
   float batteryVoltage = 0;
   int fuelTankTemp = 0;
-  int intakeAirTemp = 0;
+  int airIntakeTemp = 0;
   int gasPedalPercentage = 0;
   float airFuelRatioBank1 = 0;
   float airFuelRatioBank2 = 0;
@@ -60,5 +60,6 @@ struct bmwCanValues {
 float readEngineElectronicsTemp(Adafruit_MCP9808);
 nissanCanValues readNissanDataFromCan(mcp2515_can);
 bmwCanValues readBmwDataFromCan(mcp2515_can);
+float calculateAfRatioFromVoltage(float);
 
 #endif

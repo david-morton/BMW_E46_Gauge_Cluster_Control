@@ -76,6 +76,7 @@ mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 // Define variables for current states
 float currentAfRatioBank1;
 float currentAfRatioBank2;
+int currentAirIntakeTemp;
 float currentBatteryVoltage;
 float currentCrankCaseVacuumBar;
 float currentEngineElectronicsTemp;
@@ -99,7 +100,7 @@ const float alarmCrankCaseVacuumBar = -0.2;
 const int alarmEngineTempCelcius = 115;
 const int alarmFuelPressurePsi = 48;
 const int alarmOilPressurePsi = 12;
-const int alarmOilTempCelcius = 15;
+const int alarmOilTempCelcius = 110;
 
 // Define other variables
 int consumptionValue = 10;
@@ -107,7 +108,7 @@ int setupRetriesMax = 3;             // The number of times we should loop with 
 const int tempAlarmLight = 110;      // What temperature should the warning light come on at
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 bool inAlarmState = false;           // Are we currently in alarm state making a big noise ?
-long loopExecutionCount;
+unsigned long loopExecutionCount;
 unsigned long loopExecutionPreviousExecutionMillis;
 
 // Define misc CAN payload
@@ -135,20 +136,20 @@ void canWriteMisc() {
 // Define our pretty tiny scheduler objects
 ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
 ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAirIntakeTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanWriteClutchStatus =
-    ptScheduler(PT_TIME_100MS); // Can probably be removed, may need manual ECM to support ?
+ptScheduler ptCanWriteClutchStatus = ptScheduler(PT_TIME_5S); // Can probably be removed, may need manual ECM to support ?
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
-ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_9S);
+ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_5S);
 ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
 ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
@@ -160,7 +161,7 @@ ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 
 // Define a debug task for monitoring how fast the code is executing
-ptScheduler ptMonitorExecutionTime = ptScheduler(PT_TIME_5S);
+ptScheduler ptMonitorExecutionTime = ptScheduler(PT_TIME_10S);
 
 // Perform one time setup pieces
 void setup() {
@@ -262,8 +263,8 @@ void loop() {
   loopExecutionCount++;
 
   if (ptMonitorExecutionTime.call()) {
-    int loopFrequencyHz = (loopExecutionCount / (millis() - loopExecutionPreviousExecutionMillis) / 1000);
-    int loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
+    float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
+    float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
     SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
     SERIAL_PORT_MONITOR.print(loopFrequencyHz);
     SERIAL_PORT_MONITOR.print(" or every ");
@@ -346,6 +347,10 @@ void loop() {
     requestEcmDataAlphaPercentageBank2(CAN_NISSAN);
   }
 
+  if (ptCanRequestAirIntakeTemp.call()) {
+    requestAirIntakeTemp(CAN_NISSAN);
+  }
+
   if (ptGaugeReadValueOilPressure.call()) {
     currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
   }
@@ -377,9 +382,8 @@ void loop() {
   if (ptPublishMqttData1S.call()) {
     publishMqttMetric("batteryVoltage", "value", String(currentBatteryVoltage));
     publishMqttMetric("fuelPressure", "value", String(currentFuelPressurePsi));
-  }
-
-  if (ptPublishMqttData5S.call()) {
+    publishMqttMetric("airIntakeTemp", "value", currentAirIntakeTemp);
+    // Moved in from 5S frequency
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
@@ -387,13 +391,17 @@ void loop() {
     publishMqttMetric("radiatorTemp", "value", currentRadiatorOutletTemp);
   }
 
+  if (ptPublishMqttData5S.call()) {
+
+  }
+
   if (ptAreWeInAlarmState.call()) {
-    if (!inAlarmState &&
-        (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius)) {
+    if (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
       alarmEnable(alarmBuzzerPin, currentRpm);
       inAlarmState = true;
     } else {
       alarmDisable(alarmBuzzerPin);
+      inAlarmState = false;
     }
   }
 
@@ -413,6 +421,7 @@ void loop() {
   currentAlphaPercentageBank1 = currentNissanCanValues.alphaPercentageBank1;
   currentAlphaPercentageBank2 = currentNissanCanValues.alphaPercentageBank2;
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
+  currentAirIntakeTemp = currentNissanCanValues.airIntakeTemp;
 
   // Pull the values were are interested in from the BMW CAN response
   currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;

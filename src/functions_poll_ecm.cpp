@@ -93,3 +93,8 @@ void requestEcmDataAlphaPercentageBank2(mcp2515_can CAN_NISSAN) {
   unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x24, 0x00, 0x00, 0x00, 0x00}; // Alpha percentage bank 2
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
+
+void requestAirIntakeTemp(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x06, 0x00, 0x00, 0x00, 0x00}; // Air intake temp
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
+}

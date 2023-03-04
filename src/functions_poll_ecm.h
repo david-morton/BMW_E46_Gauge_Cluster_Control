@@ -17,5 +17,6 @@ void requestEcmDataAfRatioBank1(mcp2515_can);
 void requestEcmDataAfRatioBank2(mcp2515_can);
 void requestEcmDataAlphaPercentageBank1(mcp2515_can);
 void requestEcmDataAlphaPercentageBank2(mcp2515_can);
+void requestAirIntakeTemp(mcp2515_can);
 
 #endif
