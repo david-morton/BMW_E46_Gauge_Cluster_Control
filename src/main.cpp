@@ -60,14 +60,15 @@ const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN 
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 19;                // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 46;       // Digital output pin for PWM signal to radiator fan motor driver board
-const byte gaugeOilPressurePin = A8;         // Analogue pin 8
-const byte gaugeFuelPressurePin = A9;        // Analogue pin 9
-const byte gaugeCrankCaseVacuumPin = A10;    // Analogue pin 10
-                                             // Analogue pin 11 apparently used internaly for tone generation purposes
-const byte gaugeRadiatorOutletTempPin = A12; // Analogue pin 12
-const byte alarmBuzzerPin = 39;
+const byte rpmSignalPin = 19;                 // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 46;        // Digital output pin for PWM signal to radiator fan motor driver board
+const byte gaugeOilPressurePin = A8;          // Analogue pin 8 (Grey)
+const byte gaugeOilTemperaturePin = A9;       // Analogue pin 9 (Brown)
+const byte gaugeCrankCaseVacuumPin = A10;     // Analogue pin 10 (Red)
+                                              // Analogue pin 11 apparently used internaly for tone generation purposes
+const byte gaugeRadiatorOutletTempPin = A12;  // Analogue pin 12 (White)
+const byte gaugeFuelPressurePin = A13;        // Analogue pin 13 (Black)
+const byte alarmBuzzerPin = 53;
 
 // Define CAN objects
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
@@ -82,6 +83,7 @@ float currentCrankCaseVacuumBar;
 float currentEngineElectronicsTemp;
 float currentFuelPressurePsi;
 float currentOilPressurePsi;
+float currentOilTempSensor;
 float currentRadiatorOutletTemp;
 float currentVehicleSpeed;
 int currentAlphaPercentageBank1;
@@ -91,7 +93,7 @@ int currentClutchStatus;
 int currentEngineTempCelsius;
 int currentFanDutyPercentage;
 int currentGasPedalPosition;
-int currentOilTempCelcius;
+int currentOilTempEcm;
 int currentRpm;
 unsigned long currentVehicleSpeedTimestamp;
 
@@ -135,7 +137,7 @@ void canWriteMisc() {
 
 // Define our pretty tiny scheduler objects
 ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
-ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_200MS);
 ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestAirIntakeTemp = ptScheduler(PT_TIME_1S);
@@ -154,6 +156,7 @@ ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
 ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueRadiatorOutletTemp = ptScheduler(PT_TIME_5S);
+ptScheduler ptGaugeReadValueOilTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
 ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
 ptScheduler ptPublishMqttData5S = ptScheduler(PT_TIME_5S);
@@ -285,6 +288,12 @@ void loop() {
     detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();
     attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
+    // Change frequency of rpm calculation depending on RPM to avoid high error
+    if (currentRpm > 1500) {
+      ptCalculateRpm = ptScheduler(PT_TIME_50MS);
+    } else {
+      ptCalculateRpm = ptScheduler(PT_TIME_200MS);
+    }
   }
 
   if (ptCanWriteRpm.call()) {
@@ -363,6 +372,10 @@ void loop() {
     currentRadiatorOutletTemp = gaugeReadTemperatureCelcius(gaugeRadiatorOutletTempPin);
   }
 
+  if (ptGaugeReadValueOilTemp.call()) {
+    currentOilTempSensor = gaugeReadTemperatureCelcius(gaugeOilTemperaturePin);
+  }
+
   if (ptGaugeReadValueCrankCaseVacuum.call()) {
     currentCrankCaseVacuumBar = gaugeReadVacuumBar(gaugeCrankCaseVacuumPin);
   }
@@ -387,7 +400,8 @@ void loop() {
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
-    publishMqttMetric("oilTemp", "value", currentOilTempCelcius);
+    publishMqttMetric("oilTempEcm", "value", currentOilTempEcm);
+    publishMqttMetric("oilTempSensor", "value", currentOilTempSensor);
     publishMqttMetric("radiatorTemp", "value", currentRadiatorOutletTemp);
   }
 
@@ -396,7 +410,7 @@ void loop() {
   }
 
   if (ptAreWeInAlarmState.call()) {
-    if (currentOilTempCelcius > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
+    if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
       alarmEnable(alarmBuzzerPin, currentRpm);
       inAlarmState = true;
     } else {
@@ -413,7 +427,7 @@ void loop() {
 
   // Pull the values we are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
-  currentOilTempCelcius = currentNissanCanValues.oilTempCelcius;
+  currentOilTempEcm = currentNissanCanValues.oilTempCelcius;
   currentBatteryVoltage = currentNissanCanValues.batteryVoltage;
   currentGasPedalPosition = currentNissanCanValues.gasPedalPercentage;
   currentAfRatioBank1 = currentNissanCanValues.airFuelRatioBank1;
