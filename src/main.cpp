@@ -63,10 +63,10 @@ const int CAN_INT_PIN = 2;
 const byte rpmSignalPin = 19;                 // Digital input pin for signal wire and interrupt (from Nissan ECU)
 const byte fanDriverPwmSignalPin = 46;        // Digital output pin for PWM signal to radiator fan motor driver board
 const byte gaugeOilPressurePin = A8;          // Analogue pin 8 (Grey)
-const byte gaugeOilTemperaturePin = A9;       // Analogue pin 9 (Brown)
+const byte gaugeOilTemperaturePin = A9;       // Analogue pin 9 (Brown, uses voltage divider 1.5k ohm)
 const byte gaugeCrankCaseVacuumPin = A10;     // Analogue pin 10 (Red)
                                               // Analogue pin 11 apparently used internaly for tone generation purposes
-const byte gaugeRadiatorOutletTempPin = A12;  // Analogue pin 12 (White)
+const byte gaugeRadiatorOutletTempPin = A12;  // Analogue pin 12 (White, uses voltage divider 1.5k ohm)
 const byte gaugeFuelPressurePin = A13;        // Analogue pin 13 (Black)
 const byte alarmBuzzerPin = 53;
 
@@ -263,19 +263,19 @@ void setup() {
 // Our main loop
 void loop() {
   // Update counter for execution metrics
-  loopExecutionCount++;
+  // loopExecutionCount++;
 
-  if (ptMonitorExecutionTime.call()) {
-    float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
-    float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
-    SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
-    SERIAL_PORT_MONITOR.print(loopFrequencyHz);
-    SERIAL_PORT_MONITOR.print(" or every ");
-    SERIAL_PORT_MONITOR.print(loopExecutionMs);
-    SERIAL_PORT_MONITOR.println("ms");
-    loopExecutionCount = 1;
-    loopExecutionPreviousExecutionMillis = millis();
-  }
+  // if (ptMonitorExecutionTime.call()) {
+  //   float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
+  //   float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
+  //   SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
+  //   SERIAL_PORT_MONITOR.print(loopFrequencyHz);
+  //   SERIAL_PORT_MONITOR.print(" or every ");
+  //   SERIAL_PORT_MONITOR.print(loopExecutionMs);
+  //   SERIAL_PORT_MONITOR.println("ms");
+  //   loopExecutionCount = 1;
+  //   loopExecutionPreviousExecutionMillis = millis();
+  // }
 
   // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
   if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {

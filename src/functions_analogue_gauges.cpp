@@ -1,7 +1,11 @@
 #include "functions_analogue_gauges.h"
 #include "Arduino.h"
 
-// Define functions for reading gauge values
+/****************************************************
+ *
+ * Function - Calculate pressure sensor readings
+ *
+ ****************************************************/
 float gaugeReadPressurePsi(int sensorPin) {
   // Sensor data shows the formula to be: psi = 36.25 * voltage - 18.125
   int sensorValue = analogRead(sensorPin);
@@ -10,6 +14,22 @@ float gaugeReadPressurePsi(int sensorPin) {
   return pressure;
 }
 
-float gaugeReadVacuumBar(int sensorPin) { return -0.05; };
+/****************************************************
+ *
+ * Function - Calculate vacuum sensor readings
+ *
+ ****************************************************/
+float gaugeReadVacuumBar(int sensorPin) {
+  return -0.05;
+};
 
-float gaugeReadTemperatureCelcius(int sensorPin) { return 35.0; };
+/****************************************************
+ *
+ * Function - Calculate temperature sensor readings
+ * This is based on a voltage divider circuit to
+ * work with the resistive sensors installed
+ *
+ ****************************************************/
+float gaugeReadTemperatureCelcius(int sensorPin) {
+  return 35.0;
+};

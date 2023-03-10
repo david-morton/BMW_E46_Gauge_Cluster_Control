@@ -38,12 +38,12 @@ int calculateRpm() {
   int currentRpm = pulsesPerMinute / rpmPulsesPerRevolution;
 
   // Debug infos
-  SERIAL_PORT_MONITOR.print("Micros since last execution is ");
-  SERIAL_PORT_MONITOR.print(deltaMicros);
-  SERIAL_PORT_MONITOR.print(", pulses since last execution is ");
-  SERIAL_PORT_MONITOR.print(deltaRpmPulseCounter);
-  SERIAL_PORT_MONITOR.print(" and calculated rpm is ");
-  SERIAL_PORT_MONITOR.println(currentRpm);
+  // SERIAL_PORT_MONITOR.print("Micros since last execution is ");
+  // SERIAL_PORT_MONITOR.print(deltaMicros);
+  // SERIAL_PORT_MONITOR.print(", pulses since last execution is ");
+  // SERIAL_PORT_MONITOR.print(deltaRpmPulseCounter);
+  // SERIAL_PORT_MONITOR.print(" and calculated rpm is ");
+  // SERIAL_PORT_MONITOR.println(currentRpm);
 
   return currentRpm;
 }
