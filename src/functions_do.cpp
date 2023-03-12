@@ -91,15 +91,11 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
  * Function - Sound the alarm !!
  *
  ****************************************************/
-bool engineNotRunningButAlarmOn = false;
-
 void alarmEnable(int alarmBuzzerPin, int engineRpm) {
   if (engineRpm > 500) {
     tone(alarmBuzzerPin, 4000);
-  } else if (engineNotRunningButAlarmOn == false) {
-    SERIAL_PORT_MONITOR.println("Sounding the alarm...");
-    tone(alarmBuzzerPin, 4000, 2000);
-    engineNotRunningButAlarmOn = true;
+  } else if (engineRpm == 0) {
+    alarmDisable(alarmBuzzerPin);
   }
 }
 

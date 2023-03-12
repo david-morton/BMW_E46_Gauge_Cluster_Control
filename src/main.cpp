@@ -94,13 +94,14 @@ int currentEngineTempCelsius;
 int currentFanDutyPercentage;
 int currentGasPedalPosition;
 int currentOilTempEcm;
-int currentRpm;
+int currentRpm = 0;
 unsigned long currentVehicleSpeedTimestamp;
 
 // Define alarm state variables
 const float alarmCrankCaseVacuumBar = -0.2;
 const int alarmEngineTempCelcius = 115;
-const int alarmFuelPressurePsi = 48;
+const int alarmFuelPressureLowPsi = 48;
+const int alarmFuelPressureHighPsi = 57;
 const int alarmOilPressurePsi = 12;
 const int alarmOilTempCelcius = 110;
 
@@ -109,7 +110,6 @@ int consumptionValue = 10;
 int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
 const int tempAlarmLight = 110;      // What temperature should the warning light come on at
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
-bool inAlarmState = false;           // Are we currently in alarm state making a big noise ?
 unsigned long loopExecutionCount;
 unsigned long loopExecutionPreviousExecutionMillis;
 
@@ -258,6 +258,10 @@ void setup() {
   CAN_BMW.init_Filt(3, 0, 0x1F0);
   CAN_BMW.init_Filt(4, 0, 0x1F0);
   CAN_BMW.init_Filt(5, 0, 0x1F0);
+
+  // Perform short beep to ensure its working on startup
+  tone(alarmBuzzerPin, 4000, 1500);
+  delay(1500);
 }
 
 // Our main loop
@@ -288,11 +292,11 @@ void loop() {
     detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();
     attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
-    // Change frequency of rpm calculation depending on RPM to avoid high error
-    if (currentRpm > 1500) {
-      ptCalculateRpm = ptScheduler(PT_TIME_50MS);
-    } else {
-      ptCalculateRpm = ptScheduler(PT_TIME_200MS);
+    // Change frequency of rpm calculation depending on RPM to avoid high error at low pulse counts
+    if (currentRpm >= 1500 && ptCalculateRpm.sequenceList [0] != PT_TIME_50MS) {
+      ptCalculateRpm.sequenceList [0] = PT_TIME_50MS;
+    } else if (currentRpm < 1500 && ptCalculateRpm.sequenceList [0] != PT_TIME_200MS) {
+      ptCalculateRpm.sequenceList [0] = PT_TIME_200MS;
     }
   }
 
@@ -410,12 +414,22 @@ void loop() {
   }
 
   if (ptAreWeInAlarmState.call()) {
-    if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius) {
+    if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius ||
+        currentOilPressurePsi < alarmOilPressurePsi || currentCrankCaseVacuumBar < -100 ||
+        currentFuelPressurePsi < alarmFuelPressureLowPsi || currentFuelPressurePsi > alarmFuelPressureHighPsi) {
       alarmEnable(alarmBuzzerPin, currentRpm);
-      inAlarmState = true;
+      // SERIAL_PORT_MONITOR.print("Current RPM: ");
+      // SERIAL_PORT_MONITOR.println(currentRpm);
+      // SERIAL_PORT_MONITOR.print("Current oil temp: ");
+      // SERIAL_PORT_MONITOR.println(currentOilTempEcm);
+      // SERIAL_PORT_MONITOR.print("Current engine temp: ");
+      // SERIAL_PORT_MONITOR.println(currentEngineTempCelsius);
+      // SERIAL_PORT_MONITOR.print("Current crank case vac: ");
+      // SERIAL_PORT_MONITOR.println(currentCrankCaseVacuumBar);
+      // SERIAL_PORT_MONITOR.print("Current fuel pressure: ");
+      // SERIAL_PORT_MONITOR.println(currentFuelPressurePsi);
     } else {
       alarmDisable(alarmBuzzerPin);
-      inAlarmState = false;
     }
   }
 

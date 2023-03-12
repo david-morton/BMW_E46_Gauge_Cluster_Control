@@ -7,7 +7,7 @@
  *
  ****************************************************/
 void initialiseEcmForQueries(mcp2515_can CAN_NISSAN) {
-  SERIAL_PORT_MONITOR.println("Sending setup commands to allow parameter requests ...");
+  SERIAL_PORT_MONITOR.println("Sending setup commands to allow CAN parameter requests ...");
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x02, 0x10, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00});
   delay(50);
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, new uint8_t[8]{0x02, 0x10, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00});
