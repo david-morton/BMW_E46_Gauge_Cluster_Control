@@ -84,8 +84,12 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     }
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
+      // Fault codes
+      if (buf[0] == 0x02 && buf[1] == 0x57) {
+        SERIAL_PORT_MONITOR.print("Fault Codes: ");
+        SERIAL_PORT_MONITOR.println(buf[2]);
       // Oil temperature
-      if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
+      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
         latestNissanCanValues.oilTempCelcius = buf[4] - 50;
       // Battery voltage (at the ECM ?? Does not line up with actual battery)
       } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) {
@@ -138,8 +142,8 @@ bmwCanValues bmwCanData; // Holds the data to return to caller of function
 float vehicleSpeed;
 float wheelSpeedFl = 0;
 float wheelSpeedFr = 0;
-// float wheelSpeedRl = 0;
-// float wheelSpeedRr = 0;
+float wheelSpeedRl = 0;
+float wheelSpeedRr = 0;
 
 bmwCanValues readBmwDataFromCan(mcp2515_can can) {
   unsigned char len = 0;
@@ -154,13 +158,13 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
     if (canId == 0x1F0) {
       wheelSpeedFl = (buf[0] + (buf[1] & 15) * 256) / 16.0;
       wheelSpeedFr = (buf[2] + (buf[3] & 15) * 256) / 16.0;
-      // wheelSpeedRl = (buf[4] + (buf[5] & 15) * 256) / 16.0;
-      // wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
+      wheelSpeedRl = (buf[4] + (buf[5] & 15) * 256) / 16.0;
+      wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
     }
 
     // Calculate the average speed from front wheels and use this as overall vehicle speed
     // NOTE: Will want to change this on a dyno to rear wheels as some ECM tables are speed based
-    bmwCanData.vehicleSpeed = ((wheelSpeedFl + wheelSpeedFr) / 2);
+    bmwCanData.vehicleSpeed = ((wheelSpeedRl + wheelSpeedRr) / 2);
     bmwCanData.timestamp = millis();
   }
   return bmwCanData;

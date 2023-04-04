@@ -20,19 +20,18 @@ float gaugeReadPressurePsi(int sensorPin) {
 /****************************************************
  *
  * Function - Calculate vacuum sensor readings
+ * Measurement of sensor voltages vs vacuum gives the
+ * formula used in the below calculation
+ * pressure_psi = (voltage - 0.462) / 0.0471
+ * In our fumula 0.462 is the voltage reading at 0psi
  *
  ****************************************************/
 float gaugeReadVacuumBar(int sensorPin) {
   int sensorValue = analogRead(sensorPin);
   float voltage = sensorValue * (5.0 / 1023.0);
-  float pressureBar = voltage - 1.00;
-  // SERIAL_PORT_MONITOR.print("Sensor value: ");
-  // SERIAL_PORT_MONITOR.println(sensorValue);
-  // SERIAL_PORT_MONITOR.print("Vac voltage: ");
-  // SERIAL_PORT_MONITOR.println(voltage);
-  // SERIAL_PORT_MONITOR.print("Crank case vacuum: ");
-  // SERIAL_PORT_MONITOR.println(pressureBar);
-  return pressureBar;
+  float pressure_psi = (voltage - 0.462) / 0.0471;
+  SERIAL_PORT_MONITOR.println(voltage);
+  return pressure_psi;
 };
 
 /****************************************************

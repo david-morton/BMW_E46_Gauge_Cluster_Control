@@ -148,6 +148,7 @@ ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
+ptScheduler ptCanRequestFaults = ptScheduler(PT_TIME_5S);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
@@ -283,7 +284,7 @@ void loop() {
   // }
 
   // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
-  if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0 && pollEcmCanMetrics == true) {
+  if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {
     initialiseEcmForQueries(CAN_NISSAN);
     ecmQuerySetupPerformed = true;
   }
@@ -330,6 +331,10 @@ void loop() {
   }
 
   // CAN Based sensor reads here
+  if (ptCanRequestFaults.call()) {
+    requestEcmDataFaults(CAN_NISSAN);
+  }
+
   if (ptCanRequestOilTemp.call() && pollEcmCanMetrics == true) {
     requestEcmDataOilTemp(CAN_NISSAN);
   }

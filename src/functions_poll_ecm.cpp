@@ -98,3 +98,15 @@ void requestEcmDataAirIntakeTemp(mcp2515_can CAN_NISSAN) {
   unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x06, 0x00, 0x00, 0x00, 0x00}; // Air intake temp
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
+
+/*****************************************************
+ *
+ * Functions - Request fault data from ECM
+ *
+ ****************************************************/
+void requestEcmDataFaults(mcp2515_can CAN_NISSAN) {
+  unsigned char canPayloadInitialise[8] = {0x02, 0x10, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00};
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayloadInitialise);
+  unsigned char canPayloadRequest[8] = {0x03, 0x17, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00};
+  CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayloadRequest);
+}
