@@ -1,0 +1,67 @@
+GET FAULTS
+0x7DF   2       10      C0      0       0       0       0       0
+0x7E8   2       50      C0      0       0       0       0       0
+0x7DF   3       17      FF      0       0       0       0       0
+0x7E8   2       57      0       0       0       0       0       0
+
+CLEAR SELF LEARN
+0x7DF   2       10      C0      0       0       0       0       0
+0x7E8   2       50      C0      0       0       0       0       0
+0x7DF   3       31      6       0       0       0       0       0
+0x7E8   3       71      6       1       0       0       0       0
+0x7DF   3       31      6       1       0       0       0       0
+0x7E8   3       71      6       2       0       0       0       0
+0x7DF   3       32      6       0       0       0       0       0
+0x7E8   3       72      6       0       0       0       0       0
+
+OIL TEMP (20 deg)
+0x7DF   3       22      11      1F      0       0       0       0
+0x7E8   4       62      11      1F      46      0       0       0
+
+BATTERY VOLTS (12.6v)
+0x7DF   3       22      11      3       0       0       0       0
+0x7E8   4       62      11      3       9D      0       0       0
+
+FUEL TANK TEMP (19 deg)
+0x7DF   3       22      11      11      0       0       0       0
+0x7E8   4       62      11      11      45      0       0       0
+
+INTAKE AIR TEMP (37 deg)
+0x7DF   3       22      11      6       0       0       0       0
+0x7E8   4       62      11      6       57      0       0       0
+
+PEDL POSITION (0.68v)
+0x7DF   3       22      12      D       0       0       0       0
+0x7E8   5       62      12      D       0       87      0       0
+
+Wideband Bank 1 (2.2v)
+0x7DF   3       22      12      25      0       0       0       0
+0x7E8   5       62      12      25      1       B8      0       0
+
+Wideband Bank 2 (2.2v)
+0x7DF   3       22      12      26      0       0       0       0
+0x7E8   5       62      12      26      1       B8      0       0
+
+A/F Alpha Bank 1 (100)
+0x7DF   3       22      11      23      0       0       0       0
+0x7E8   4       62      11      23      64      0       0       0
+
+A/F Alpha Bank 2 (100)
+0x7DF   3       22      11      24      0       0       0       0
+0x7E8   4       62      11      24      64      0       0       0
+
+TPS 1 Bank 1 (0.64)
+0x7DF   3       22      12      F       0       0       0       0
+0x7E8   5       62      12      F       0       80      0       0
+
+TPS 1 Bank 2 (0.66v)
+0x7DF   3       22      12      4B      0       0       0       0
+0x7E8   5       62      12      4B      0       84      0       0
+
+Injector Time Bank 1 (12.39 ms?)
+0x7DF   3       22      12      6       0       0       0       0
+0x7E8   5       62      12      6       4       D7      0       0
+
+Injector Time Bank 2 (12.39 ms?)
+0x7DF   3       22      12      7       0       0       0       0
+0x7E8   5       62      12      7       4       D7      0       0
