@@ -31,19 +31,6 @@ float calculateAfRatioFromVoltage(float decimalVoltage){
     int nextHighestAfRatio = afRatioLookup.find(lookupVoltage + 10)->second;
     int afRatioDifferance = nextHighestAfRatio - searchAfRatio;
     float calculatedAfRatio = (searchAfRatio + (((decimalVoltage * 100 - lookupVoltage) / 10) * afRatioDifferance));
-    // SERIAL_PORT_MONITOR.print("Decimal of ");
-    // SERIAL_PORT_MONITOR.print(decimalVoltage);
-    // SERIAL_PORT_MONITOR.print(" means a lookup value of ");
-    // SERIAL_PORT_MONITOR.print(lookupVoltage);
-    // SERIAL_PORT_MONITOR.print(" which is AFR lookup of ");
-    // SERIAL_PORT_MONITOR.print(searchAfRatio);
-    // SERIAL_PORT_MONITOR.print(". The next highest reading is ");
-    // SERIAL_PORT_MONITOR.print(nextHighestAfRatio);
-    // SERIAL_PORT_MONITOR.print(" and the diff is ");
-    // SERIAL_PORT_MONITOR.println(afRatioDifferance);
-    // SERIAL_PORT_MONITOR.print("The exact multiplied AFR is ");
-    // SERIAL_PORT_MONITOR.print(calculatedAfRatio);
-    // SERIAL_PORT_MONITOR.println("\n");
     return calculatedAfRatio / 100;
   }
 }
@@ -102,6 +89,7 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
           // Back to regular programming ... 
           latestNissanCanValues.checkEngineLightState = 2;
         } else {
+          SERIAL_PORT_MONITOR.println("Got a message for MIL faults but 0 lodged");
           latestNissanCanValues.checkEngineLightState = 0;
         }
       // Oil temperature
@@ -178,8 +166,8 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
       wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
     }
 
-    // Calculate the average speed from front wheels and use this as overall vehicle speed
-    // NOTE: Will want to change this on a dyno to rear wheels as some ECM tables are speed based
+    // Calculate the average speed from rear wheels and use this as overall vehicle speed
+    // This will cater for being on a dyno or doing sick as burnouts or similar
     bmwCanData.vehicleSpeed = ((wheelSpeedRl + wheelSpeedRr) / 2);
     bmwCanData.timestamp = millis();
   }

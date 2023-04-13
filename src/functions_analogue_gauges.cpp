@@ -20,17 +20,19 @@ float gaugeReadPressurePsi(int sensorPin) {
 /****************************************************
  *
  * Function - Calculate vacuum sensor readings
+ * 
  * Measurement of sensor voltages vs vacuum gives the
  * formula used in the below calculation
  * pressure_psi = (voltage - 0.5707) / 0.0471
- * In our fumula 0.5707 is the voltage reading at 0psi
+ * In our formula 0.5707 is the voltage reading at 0psi
+ * which we use as a default but set to the current 
+ * measured value if we can during setup.
  *
  ****************************************************/
-float gaugeReadVacuumBar(int sensorPin) {
+float gaugeReadVacuumBar(int sensorPin, float atmospheric_voltage) {
   int sensorValue = analogRead(sensorPin);
   float voltage = sensorValue * (5.0 / 1023.0);
-  float pressure_psi = (voltage - 0.5707) / 0.0471;
-  SERIAL_PORT_MONITOR.println(voltage);
+  float pressure_psi = (voltage - atmospheric_voltage) / 0.0471;
   return pressure_psi;
 };
 

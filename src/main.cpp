@@ -115,6 +115,7 @@ const int tempAlarmLight = 110;      // What temperature should the warning ligh
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 unsigned long loopExecutionCount;
 unsigned long loopExecutionPreviousExecutionMillis;
+float atmospheric_voltage = 0.5707;  // The sensor voltage before we start the car, this is 0psi
 
 // Define misc CAN payload
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
@@ -173,6 +174,21 @@ void setup() {
   SERIAL_PORT_MONITOR.begin(115200);
   while (!Serial) {
   };
+
+  // Set the current 0psi voltage of the crank case vacuum sensor if engine is off
+  if (currentRpm == 0) {
+    float totalVoltage = 0.0;
+    for (int i = 0; i < 10; i++) {
+      int sensorValue = analogRead(gaugeCrankCaseVacuumPin);
+      float voltage = sensorValue * (5.0 / 1023.0);
+      totalVoltage += voltage;
+      delay(20);
+    }
+    atmospheric_voltage = totalVoltage / 10.0;
+    SERIAL_PORT_MONITOR.print("INFO: Initialised crank case vacuum sensor at ");
+    SERIAL_PORT_MONITOR.print(atmospheric_voltage);
+    SERIAL_PORT_MONITOR.println(" V");
+  }
 
   // Initialise ethernet shield and mqtt client
   initialiseEthernetShield();
@@ -385,7 +401,7 @@ void loop() {
   }
 
   if (ptGaugeReadValueCrankCaseVacuum.call()) {
-    currentCrankCaseVacuumBar = gaugeReadVacuumBar(gaugeCrankCaseVacuumPin);
+    currentCrankCaseVacuumBar = gaugeReadVacuumBar(gaugeCrankCaseVacuumPin, atmospheric_voltage);
   }
 
   if (ptPublishMqttData100Ms.call()) {

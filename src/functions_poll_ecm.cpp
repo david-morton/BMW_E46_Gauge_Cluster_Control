@@ -59,43 +59,51 @@ void initialiseEcmForQueries(mcp2515_can CAN_NISSAN) {
  * Functions - Request for queried metrics from ECM
  *
  ****************************************************/
+// Oil temp
 void requestEcmDataOilTemp(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x1F, 0x00, 0x00, 0x00, 0x00}; // Oil temp
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x1F, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// Battery voltage
 void requestEcmDataBatteryVoltage(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x03, 0x00, 0x00, 0x00, 0x00}; // Battery voltage
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x03, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// Pedal position
 void requestEcmDataGasPedalPercentage(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x0D, 0x00, 0x00, 0x00, 0x00}; // Pedal position
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x0D, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// AF Voltage bank 1
 void requestEcmDataAfRatioBank1(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x25, 0x00, 0x00, 0x00, 0x00}; // AF Voltage bank 1
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x25, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// AF Voltage bank 2
 void requestEcmDataAfRatioBank2(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x26, 0x00, 0x00, 0x00, 0x00}; // AF Voltage bank 2
+  unsigned char canPayload[8] = {0x03, 0x22, 0x12, 0x26, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// Alpha percentage bank 1
 void requestEcmDataAlphaPercentageBank1(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x23, 0x00, 0x00, 0x00, 0x00}; // Alpha percentage bank 1
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x23, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// Alpha percentage bank 2
 void requestEcmDataAlphaPercentageBank2(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x24, 0x00, 0x00, 0x00, 0x00}; // Alpha percentage bank 2
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x24, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 
+// Air intake temp
 void requestEcmDataAirIntakeTemp(mcp2515_can CAN_NISSAN) {
-  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x06, 0x00, 0x00, 0x00, 0x00}; // Air intake temp
+  unsigned char canPayload[8] = {0x03, 0x22, 0x11, 0x06, 0x00, 0x00, 0x00, 0x00};
   CAN_NISSAN.sendMsgBuf(0x7DF, 0, 8, canPayload);
 }
 

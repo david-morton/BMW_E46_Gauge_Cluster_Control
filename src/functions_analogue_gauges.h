@@ -8,7 +8,7 @@
  ****************************************************/
 
 float gaugeReadPressurePsi(int);
-float gaugeReadVacuumBar(int);
+float gaugeReadVacuumBar(int, float);
 float gaugeReadTemperatureCelcius(int);
 
 #endif
