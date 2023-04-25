@@ -71,22 +71,23 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     }
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
+
+      // DEBUG HERE STARTS
+      SERIAL_PORT_MONITOR.print("0x");
+      SERIAL_PORT_MONITOR.print(canId, HEX);
+      SERIAL_PORT_MONITOR.print("\t");
+      for (int i = 0; i < len; i++) { // print the data
+      if (buf[i] < 0x10) {
+        Serial.print("0");
+      }
+        SERIAL_PORT_MONITOR.print(buf[i], HEX);
+        SERIAL_PORT_MONITOR.print("\t");
+      }
+      SERIAL_PORT_MONITOR.println();
+
       // Fault codes and MIL light
       if (buf[0] == 0x02 && buf[1] == 0x57) {
         if (buf[2] != 0) {
-          // DEBUG HERE STARTS
-          SERIAL_PORT_MONITOR.print("0x");
-          SERIAL_PORT_MONITOR.print(canId, HEX);
-          SERIAL_PORT_MONITOR.print("\t");
-          for (int i = 0; i < len; i++) { // print the data
-          if (buf[i] < 0x10) {
-            Serial.print("0");
-          }
-            SERIAL_PORT_MONITOR.print(buf[i], HEX);
-            SERIAL_PORT_MONITOR.print("\t");
-          }
-          SERIAL_PORT_MONITOR.println();
-          // Back to regular programming ... 
           latestNissanCanValues.checkEngineLightState = 2;
         } else {
           SERIAL_PORT_MONITOR.println("Got a message for MIL faults but 0 lodged");

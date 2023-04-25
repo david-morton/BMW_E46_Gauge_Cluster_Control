@@ -82,7 +82,7 @@ float currentAfRatioBank1;
 float currentAfRatioBank2;
 int currentAirIntakeTemp;
 float currentBatteryVoltage;
-float currentCrankCaseVacuumBar;
+float currentCrankCaseVacuumPsi;
 float currentEngineElectronicsTemp;
 float currentFuelPressurePsi;
 float currentOilPressurePsi;
@@ -101,11 +101,11 @@ int currentRpm = 0;
 unsigned long currentVehicleSpeedTimestamp;
 
 // Define alarm state variables
-const float alarmCrankCaseVacuumBar = -0.2;
+const float alarmCrankCaseVacuumPsi = -5;
 const int alarmEngineTempCelcius = 115;
 const int alarmFuelPressureLowPsi = 48;
 const int alarmFuelPressureHighPsi = 57;
-const int alarmOilPressurePsi = 12;
+const int alarmOilPressurePsi = 10;
 const int alarmOilTempCelcius = 110;
 
 // Define other variables
@@ -401,7 +401,7 @@ void loop() {
   }
 
   if (ptGaugeReadValueCrankCaseVacuum.call()) {
-    currentCrankCaseVacuumBar = gaugeReadVacuumBar(gaugeCrankCaseVacuumPin, atmospheric_voltage);
+    currentCrankCaseVacuumPsi = gaugeReadVacuumPsi(gaugeCrankCaseVacuumPin, atmospheric_voltage);
   }
 
   if (ptPublishMqttData100Ms.call()) {
@@ -413,7 +413,7 @@ void loop() {
     publishMqttMetric("alphaPercentageBank1", "value", currentAlphaPercentageBank1);
     publishMqttMetric("alphaPercentageBank2", "value", currentAlphaPercentageBank2);
     publishMqttMetric("oilPressure", "value", String(currentOilPressurePsi));
-    publishMqttMetric("crankCaseVacuum", "value", String(currentCrankCaseVacuumBar));
+    publishMqttMetric("crankCaseVacuum", "value", String(currentCrankCaseVacuumPsi));
   }
 
   if (ptPublishMqttData1S.call()) {
@@ -430,7 +430,7 @@ void loop() {
 
   if (ptAreWeInAlarmState.call()) {
     if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius ||
-        currentOilPressurePsi < alarmOilPressurePsi || currentCrankCaseVacuumBar < -100 ||
+        currentOilPressurePsi < alarmOilPressurePsi || currentCrankCaseVacuumPsi < alarmCrankCaseVacuumPsi ||
         currentFuelPressurePsi < alarmFuelPressureLowPsi || currentFuelPressurePsi > alarmFuelPressureHighPsi) {
       alarmEnable(alarmBuzzerPin, currentRpm);
     } else {

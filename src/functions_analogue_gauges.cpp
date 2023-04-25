@@ -29,7 +29,7 @@ float gaugeReadPressurePsi(int sensorPin) {
  * measured value if we can during setup.
  *
  ****************************************************/
-float gaugeReadVacuumBar(int sensorPin, float atmospheric_voltage) {
+float gaugeReadVacuumPsi(int sensorPin, float atmospheric_voltage) {
   int sensorValue = analogRead(sensorPin);
   float voltage = sensorValue * (5.0 / 1023.0);
   float pressure_psi = (voltage - atmospheric_voltage) / 0.0471;
