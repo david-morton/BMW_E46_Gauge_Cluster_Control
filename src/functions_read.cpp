@@ -45,6 +45,10 @@ float gasPedalMinVoltage = 0.65;
 float gasPedalMaxVoltage = 4.85;
 float gasPedalVoltageRange = gasPedalMaxVoltage - gasPedalMinVoltage;
 
+// Define engine check light watchdog
+unsigned long lastNoEcmFaultsTimestamp;
+int secondsToSetCheckLight = 30;
+
 // Define our custom struct for holding the values
 nissanCanValues latestNissanCanValues;
 int checkEngineLightState;
@@ -62,13 +66,13 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
 
   if (CAN_MSGAVAIL == can.checkReceive()) {
     can.readMsgBuf(&len, buf);
-
     unsigned long canId = can.getCanId();
 
-    // Get the current coolant temperature
+    // Get the current coolant temperature which is simply broadcast on the bus
     if (canId == 0x551) {
       latestNissanCanValues.engineTempCelsius = buf[0] - 40;
     }
+
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
 
@@ -76,57 +80,65 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       SERIAL_PORT_MONITOR.print("0x");
       SERIAL_PORT_MONITOR.print(canId, HEX);
       SERIAL_PORT_MONITOR.print("\t");
-      for (int i = 0; i < len; i++) { // print the data
-      if (buf[i] < 0x10) {
-        Serial.print("0");
-      }
+      for (int i = 0; i < len; i++) {
+        if (buf[i] < 0x10) {
+          Serial.print("0");
+        }
         SERIAL_PORT_MONITOR.print(buf[i], HEX);
         SERIAL_PORT_MONITOR.print("\t");
       }
       SERIAL_PORT_MONITOR.println();
 
-      // Fault codes and MIL light
-      if (buf[0] == 0x02 && buf[1] == 0x57) {
-        if (buf[2] != 0) {
-          latestNissanCanValues.checkEngineLightState = 2;
-        } else {
-          SERIAL_PORT_MONITOR.println("Got a message for MIL faults but 0 lodged");
-          latestNissanCanValues.checkEngineLightState = 0;
-        }
+      // Fault codes and MIL light (no faults detected)
+      if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 5000) {
+        lastNoEcmFaultsTimestamp = millis();
+        latestNissanCanValues.checkEngineLightState = 0;
+      }
+      // Fault codes and MIL light (timer expired, set the light)
+      if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000)) {
+        latestNissanCanValues.checkEngineLightState = 2;
+      }
       // Oil temperature
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
+      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
         latestNissanCanValues.oilTempCelcius = buf[4] - 50;
+      }
       // Battery voltage (at the ECM ?? Does not line up with actual battery)
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) {
+      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x03) {
         int raw_value = (buf[3] << 8) | buf[4];
         float batteryVoltage = raw_value / 65.0; // This needs another look !!
         latestNissanCanValues.batteryVoltage = batteryVoltage;
+      }
       // Gas pedal position
-      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D) {
+      else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x0D) {
         int raw_value = (buf[4] << 8) | buf[5];
         float voltage = raw_value / 200.0;
         int gasPedalPercentage = ((voltage - gasPedalMinVoltage) / gasPedalVoltageRange) * 100;
         latestNissanCanValues.gasPedalPercentage = gasPedalPercentage;
+      }
       // Air fuel ratio bank 1
-      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) {
+      else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) {
         int raw_value = (buf[4] << 8) | buf[5];
         float airFuelRatioBank1Voltage = raw_value / 200.0;
         latestNissanCanValues.airFuelRatioBank1 = calculateAfRatioFromVoltage(airFuelRatioBank1Voltage);
+      }
       // Air fuel ratio bank 2
-      } else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x26) {
+      else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x26) {
         int raw_value = (buf[4] << 8) | buf[5];
         float airFuelRatioBank2Voltage = raw_value / 200.0;
         latestNissanCanValues.airFuelRatioBank2 = calculateAfRatioFromVoltage(airFuelRatioBank2Voltage);
+      }
       // Alpha percentage bank 1
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x23) {
+      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x23) {
         int alphaPercentageBank1 = buf[4];
         latestNissanCanValues.alphaPercentageBank1 = alphaPercentageBank1;
+      }
       // Alpha percentage bank 1
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x24) {
+      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x24) {
         int alphaPercentageBank2 = buf[4];
         latestNissanCanValues.alphaPercentageBank2 = alphaPercentageBank2;
+      }
       // Air intake temperature
-      } else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x06) {
+      else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x06) {
         int airIntakeTemp = buf[4] - 50;
         latestNissanCanValues.airIntakeTemp = airIntakeTemp;
       }

@@ -76,6 +76,7 @@ mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
 // Define 'master switch' for CAN polling
 bool pollEcmCanMetrics = false;
+bool pollEcmCanFaults = true;
 
 // Define variables for current states
 float currentAfRatioBank1;
@@ -347,7 +348,7 @@ void loop() {
   }
 
   // CAN Based sensor reads here
-  if (ptCanRequestFaults.call()) {
+  if (ptCanRequestFaults.call() && pollEcmCanFaults == true) {
     requestEcmDataFaults(CAN_NISSAN);
   }
 
@@ -426,6 +427,9 @@ void loop() {
     publishMqttMetric("oilTempEcm", "value", currentOilTempEcm);
     publishMqttMetric("oilTempSensor", "value", currentOilTempSensor);
     publishMqttMetric("radiatorTemp", "value", currentRadiatorOutletTemp);
+    publishMqttMetric("0to50", "value", String(getBestZeroToFifty() / 1000));
+    publishMqttMetric("0to100", "value", String(getBestZeroToOneHundred() / 1000));
+    publishMqttMetric("80to120", "value", String(getBestEightyToOneTwenty() / 1000));
   }
 
   if (ptAreWeInAlarmState.call()) {
@@ -461,6 +465,6 @@ void loop() {
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
   // Pass the current speed and timestamp values into functions for performance metrics
-  // captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+  captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
   // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }

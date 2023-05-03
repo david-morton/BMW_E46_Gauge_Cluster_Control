@@ -7,11 +7,17 @@
  *
  ****************************************************/
 
+float latest0To50 = 300000;
+float best0To50 = 300000;
+
 float latest0To100 = 300000;
 float best0To100 = 300000;
 
 float latest80To120 = 300000;
 float best80To120 = 300000;
+
+unsigned long start0To50;
+unsigned long end0To50;
 
 unsigned long start0To100;
 unsigned long end0To100;
@@ -21,12 +27,27 @@ unsigned long end80To120;
 
 float previousSpeed;
 
+float getBestZeroToFifty() { return best0To50; }
 float getBestZeroToOneHundred() { return best0To100; }
 float getBestEightyToOneTwenty() { return best80To120; }
 
 void captureAccellerationTimes(unsigned long speedTimestamp, float speedValue) {
   if (speedValue < 1) {
     speedValue = 0;
+  }
+
+  // Capture start condition 0 to 50
+  if (speedValue > 0 && previousSpeed == 0) {
+    start0To50 = speedTimestamp;
+  }
+
+  // Capture end condition 0 to 50
+  if (speedValue >= 50 && previousSpeed < 50) {
+    end0To50 = speedTimestamp;
+    latest0To50 = end0To50 - start0To50;
+    if (latest0To50 < best0To50) {
+      best0To50 = latest0To50;
+    }
   }
 
   // Capture start condition 0 to 100
