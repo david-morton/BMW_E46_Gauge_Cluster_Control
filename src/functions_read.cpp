@@ -156,7 +156,8 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
  ****************************************************/
 bmwCanValues bmwCanData; // Holds the data to return to caller of function
 
-float vehicleSpeed;
+float vehicleSpeedFront;
+float vehicleSpeedRear;
 float wheelSpeedFl = 0;
 float wheelSpeedFr = 0;
 float wheelSpeedRl = 0;
@@ -181,7 +182,8 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
 
     // Calculate the average speed from rear wheels and use this as overall vehicle speed
     // This will cater for being on a dyno or doing sick as burnouts or similar
-    bmwCanData.vehicleSpeed = ((wheelSpeedRl + wheelSpeedRr) / 2);
+    bmwCanData.vehicleSpeedFront = ((wheelSpeedFl + wheelSpeedFr) / 2);
+    bmwCanData.vehicleSpeedRear = ((wheelSpeedRl + wheelSpeedRr) / 2);
     bmwCanData.timestamp = millis();
   }
   return bmwCanData;

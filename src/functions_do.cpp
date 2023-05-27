@@ -54,9 +54,9 @@ int calculateRpm() {
  *
  ****************************************************/
 const float fanMinimumEngineTemperature = 90;  // Temperature in celcius when fan will begin opperation
-const float fanMaximumEngineTemperature = 100; // Temperature in celcius when fan will be opperating at maximum power
+const float fanMaximumEngineTemperature = 95; // Temperature in celcius when fan will be opperating at maximum power
 float fanPercentageOutput = 0.0;               // Will store the current fan output percentage
-int fanMinimumPercentageOutput = 20;           // A reasonable minimum fan speed to avoid running it too slow
+int fanMinimumPercentageOutput = 40;           // A reasonable minimum fan speed to avoid running it too slow
 int fanPwmPinValue = 0; // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
 
 int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
@@ -88,11 +88,20 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
 
 /****************************************************
  *
- * Function - Sound the alarm !!
+ * Function - Sound the alarm (but only after a delay) !!
  *
  ****************************************************/
+unsigned long inAlarmDuration = 0;
+unsigned long firstAlarmCallTime = 0;
+
 void alarmEnable(int alarmBuzzerPin, int engineRpm) {
-  if (engineRpm > 500) {
+  if (firstAlarmCallTime == 0) {
+    firstAlarmCallTime = millis();
+  }
+
+  inAlarmDuration = millis() - firstAlarmCallTime;
+
+  if (engineRpm > 500 && inAlarmDuration > 1000) {
     tone(alarmBuzzerPin, 4000);
   } else if (engineRpm == 0) {
     alarmDisable(alarmBuzzerPin);
@@ -104,4 +113,7 @@ void alarmEnable(int alarmBuzzerPin, int engineRpm) {
  * Function - Disable the alarm please thanks
  *
  ****************************************************/
-void alarmDisable(int alarmBuzzerPin) { noTone(alarmBuzzerPin); }
+void alarmDisable(int alarmBuzzerPin) { 
+  noTone(alarmBuzzerPin);
+  firstAlarmCallTime = 0;
+}

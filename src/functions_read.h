@@ -48,7 +48,8 @@ struct nissanCanUpdateTimes {
 };
 
 struct bmwCanValues {
-  float vehicleSpeed;
+  float vehicleSpeedFront;
+  float vehicleSpeedRear;
   unsigned long timestamp;
 };
 

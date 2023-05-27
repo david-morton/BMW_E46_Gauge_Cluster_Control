@@ -89,7 +89,8 @@ float currentFuelPressurePsi;
 float currentOilPressurePsi;
 float currentOilTempSensor;
 float currentRadiatorOutletTemp;
-float currentVehicleSpeed;
+float currentVehicleSpeedFront;
+float currentVehicleSpeedRear;
 int currentAlphaPercentageBank1;
 int currentAlphaPercentageBank2;
 int currentCheckEngineLightState;
@@ -328,7 +329,7 @@ void loop() {
   }
 
   if (ptCanWriteSpeed.call()) {
-    canWriteSpeed(currentVehicleSpeed, CAN_NISSAN);
+    canWriteSpeed(currentVehicleSpeedRear, CAN_NISSAN);
   }
 
   if (ptCanWriteMisc.call()) {
@@ -407,7 +408,7 @@ void loop() {
 
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
-    publishMqttMetric("speed", "value", currentVehicleSpeed);
+    publishMqttMetric("speed", "value", currentVehicleSpeedFront);
     publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
     publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
     publishMqttMetric("afRatioBank2", "value", String(currentAfRatioBank2));
@@ -461,10 +462,11 @@ void loop() {
   currentAirIntakeTemp = currentNissanCanValues.airIntakeTemp;
 
   // Pull the values were are interested in from the BMW CAN response
-  currentVehicleSpeed = currentBmwCanValues.vehicleSpeed;
+  currentVehicleSpeedFront = currentBmwCanValues.vehicleSpeedFront;
+  currentVehicleSpeedRear = currentBmwCanValues.vehicleSpeedRear;
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
   // Pass the current speed and timestamp values into functions for performance metrics
-  captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+  captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeedFront);
   // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }
