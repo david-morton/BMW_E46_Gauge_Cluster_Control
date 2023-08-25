@@ -52,6 +52,7 @@ float gaugeReadTemperatureCelcius(int sensorPin) {
   int sensorReading = analogRead(sensorPin);                        // Get voltage from voltage divided sensor
   float sensorResistance = R1 * ((1023.0 / sensorReading) - 1.0);   // Convert voltage reading to resistance
   float tempKelvin = 1 / (A + B*log(sensorResistance) + C*log(sensorResistance)*log(sensorResistance)*log(sensorResistance));
-  float temperatureC = tempKelvin - 273.15;
+  float temperatureC = tempKelvin - 273.15 - 10;                    // Measured readings vs OEM sensors (and known ambient)
+                                                                    // show a 10 degree variance
   return temperatureC;
 };
