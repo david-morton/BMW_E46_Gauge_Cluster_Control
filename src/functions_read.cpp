@@ -180,10 +180,15 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
       wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
     }
 
-    // Calculate the average speed from rear wheels and use this as overall vehicle speed
-    // This will cater for being on a dyno or doing sick as burnouts or similar
+    float lowerRearSpeed = (wheelSpeedRl < wheelSpeedRr) ? wheelSpeedRl : wheelSpeedRr;
+    float higherRearSpeed = (wheelSpeedRl > wheelSpeedRr) ? wheelSpeedRl : wheelSpeedRr;
+
+    float rearSpeedVariation = higherRearSpeed - lowerRearSpeed;
+
+    // Calculate the required values
     bmwCanData.vehicleSpeedFront = ((wheelSpeedFl + wheelSpeedFr) / 2);
     bmwCanData.vehicleSpeedRear = ((wheelSpeedRl + wheelSpeedRr) / 2);
+    bmwCanData.vehicleSpeedRearVariation = (rearSpeedVariation / lowerRearSpeed) * 100;
     bmwCanData.timestamp = millis();
   }
   return bmwCanData;

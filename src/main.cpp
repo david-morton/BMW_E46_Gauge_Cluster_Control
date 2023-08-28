@@ -91,6 +91,7 @@ float currentOilTempSensor;
 float currentRadiatorOutletTemp;
 float currentVehicleSpeedFront;
 float currentVehicleSpeedRear;
+float currentVehicleSpeedRearVariation;
 int currentAlphaPercentageBank1;
 int currentAlphaPercentageBank2;
 int currentCheckEngineLightState;
@@ -409,6 +410,7 @@ void loop() {
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeedFront);
+    publishMqttMetric("diffSpeedSplit", "value", currentVehicleSpeedRearVariation);
     publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
     publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
     publishMqttMetric("afRatioBank2", "value", String(currentAfRatioBank2));
@@ -464,6 +466,7 @@ void loop() {
   // Pull the values were are interested in from the BMW CAN response
   currentVehicleSpeedFront = currentBmwCanValues.vehicleSpeedFront;
   currentVehicleSpeedRear = currentBmwCanValues.vehicleSpeedRear;
+  currentVehicleSpeedRearVariation = currentBmwCanValues.vehicleSpeedRearVariation;
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
   // Pass the current speed and timestamp values into functions for performance metrics
