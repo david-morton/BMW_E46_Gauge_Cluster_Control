@@ -58,7 +58,7 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
   unsigned char buf[8];
 
   // Hard set of MIL after boot
-  if (millis() < 5000) {
+  if (millis() < 8000) {
     latestNissanCanValues.checkEngineLightState = 2;
   } else {
     latestNissanCanValues.checkEngineLightState = 0;
@@ -90,12 +90,12 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       SERIAL_PORT_MONITOR.println();
 
       // Fault codes and MIL light (no faults detected)
-      if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 5000) {
+      if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 30000) {
         lastNoEcmFaultsTimestamp = millis();
         latestNissanCanValues.checkEngineLightState = 0;
       }
       // Fault codes and MIL light (timer expired, set the light)
-      if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000)) {
+      if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000) && millis() > 30000) {
         latestNissanCanValues.checkEngineLightState = 2;
       }
       // Oil temperature

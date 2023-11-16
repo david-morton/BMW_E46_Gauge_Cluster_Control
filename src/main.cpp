@@ -55,7 +55,9 @@ constant 30A.
 
 #define CAN_2515
 
-// Some pin assignments. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select
+/*
+Define pin constancts. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select.
+*/
 const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
@@ -70,15 +72,22 @@ const byte gaugeRadiatorOutletTempPin = A12; // Analogue pin 12 (White, uses vol
 const byte gaugeFuelPressurePin = A13;       // Analogue pin 13 (Black)
 const byte alarmBuzzerPin = 53;
 
-// Define CAN objects
+/*
+Define CAN shield objects
+*/
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-// Define 'master switch' for CAN polling
+/*
+Define variables for CAN polling behaviour
+*/
 bool pollEcmCanMetrics = false;
-bool pollEcmCanFaults = true;
+bool pollEcmCanFaults = false;
+bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 
-// Define variables for current states
+/*
+Define variables for current states
+*/
 float currentAfRatioBank1;
 float currentAfRatioBank2;
 int currentAirIntakeTemp;
@@ -94,7 +103,7 @@ float currentVehicleSpeedRear;
 float currentVehicleSpeedRearVariation;
 int currentAlphaPercentageBank1;
 int currentAlphaPercentageBank2;
-int currentCheckEngineLightState;
+int currentCheckEngineLightState = 2; // Setting initial state so check engine light illuminates as soon as possible when powered on
 int currentClutchStatus;
 int currentEngineTempCelsius;
 int currentFanDutyPercentage;
@@ -103,38 +112,46 @@ int currentOilTempEcm;
 int currentRpm = 0;
 unsigned long currentVehicleSpeedTimestamp;
 
-// Define alarm state variables
+/*
+Define constants for different alarm states
+*/
 const float alarmCrankCaseVacuumPsi = -5;
-const int alarmEngineTempCelcius = 115;
+const int alarmEngineTempCelcius = 110;
 const int alarmFuelPressureLowPsi = 48;
 const int alarmFuelPressureHighPsi = 57;
 const int alarmOilPressurePsi = 10;
-const int alarmOilTempCelcius = 110;
+const int alarmOilTempCelcius = 120;
 
-// Define other variables
+/*
+Define variables
+*/
 int consumptionValue = 10;
 int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
-const int tempAlarmLight = 110;      // What temperature should the warning light come on at
-bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 unsigned long loopExecutionCount;
 unsigned long loopExecutionPreviousExecutionMillis;
-float atmospheric_voltage = 0.5707;  // The sensor voltage before we start the car, this is 0psi
+float atmospheric_voltage = 0.5707;  // The pressure sensor voltage before we start the car, this is 0psi
 
-// Define misc CAN payload
+/*
+Define misc CAN payload object
+*/
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
 
-// Create the MCP9808 temperature sensor object
+/*
+Create the MCP9808 temperature sensor object used in the ECU compartment temp measurement
+*/
 Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
 
-// Function - Write misc payload to BMW CAN
+/*
+Define function - Write misc payloads to BMW CAN
+*/
 void canWriteMisc() {
-  canPayloadMisc[0] = currentCheckEngineLightState; // 2 for check engine light
-                                                    // 16 for EML light
-                                                    // 18 for check engine AND EML
-                                                    // 0 for neither
-  canPayloadMisc[1] = consumptionValue;             // Fuel consumption LSB
-  canPayloadMisc[2] = (consumptionValue >> 8);      // Fuel consumption MSB
-  if (currentEngineTempCelsius >= tempAlarmLight)   // Set the red alarm light on the temp gauge if needed
+  canPayloadMisc[0] = currentCheckEngineLightState;         // 2 for check engine light
+                                                            // 16 for EML light
+                                                            // 18 for check engine AND EML
+                                                            // 0 for neither
+  canPayloadMisc[1] = consumptionValue;                     // Fuel consumption LSB
+  canPayloadMisc[2] = (consumptionValue >> 8);              // Fuel consumption MSB
+  if (currentEngineTempCelsius >= alarmEngineTempCelcius)   // Set the red alarm light on the temp gauge if needed
     canPayloadMisc[3] = 8;
   else
     canPayloadMisc[3] = 0;
@@ -142,7 +159,9 @@ void canWriteMisc() {
   CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
-// Define our pretty tiny scheduler objects
+/*
+Define our pretty tiny scheduler objects
+*/
 ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
 ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_200MS);
 ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
@@ -169,16 +188,23 @@ ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
 
-// Define a debug task for monitoring how fast the code is executing
+/*
+Define a debug task for monitoring how fast the code is executing
+*/
 ptScheduler ptMonitorExecutionTime = ptScheduler(PT_TIME_10S);
 
-// Perform one time setup pieces
+/*
+Perform main setup tasks on boot
+*/
 void setup() {
   SERIAL_PORT_MONITOR.begin(115200);
   while (!Serial) {
   };
 
-  // Set the current 0psi voltage of the crank case vacuum sensor if engine is off
+  /*
+  Set the current 0psi voltage of the crank case vacuum sensor if engine is off
+  so that any variation in atmospheric pressure is taken into account
+  */
   if (currentRpm == 0) {
     float totalVoltage = 0.0;
     for (int i = 0; i < 10; i++) {
@@ -193,10 +219,14 @@ void setup() {
     SERIAL_PORT_MONITOR.println(" V");
   }
 
-  // Initialise ethernet shield and mqtt client
+  /*
+  Initialise ethernet shield
+  */
   initialiseEthernetShield();
 
-  // Configure CAN shield interfaces
+  /*
+  Configure CAN shield interfaces
+  */
   SERIAL_PORT_MONITOR.println("INFO - Initialising BMW CAN shield");
 
   for (int i = 0; i < setupRetriesMax; i++) {
@@ -229,14 +259,20 @@ void setup() {
     }
   }
 
-  // Configure interrupt for RPM signal input
+  /*
+  Configure interrupt for RPM signal input
+  */
   pinMode(rpmSignalPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
 
-  // Configure pins for output to fan controller
+  /*
+  Configure pins for output to fan controller
+  */
   pinMode(fanDriverPwmSignalPin, OUTPUT);
 
-  // Configure the temperature sensor
+  /*
+  Configure the temperature sensor located in the ECU compartment
+  */
   SERIAL_PORT_MONITOR.println("INFO - Initialising MCP9808 temperature sensor");
 
   for (int i = 0; i < setupRetriesMax; i++) {
@@ -255,9 +291,11 @@ void setup() {
     }
   }
 
-  // Configure masks and filters for shields to reduce noise. There are two masks in the mcp2515 which both need to be
-  // set. Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed 0x551 is where coolant temperature is
-  // located 0x7E8 is for results of queried parameters
+  /*
+  Configure masks and filters for shields to reduce noise. There are two masks in the mcp2515 which both need to be
+  set. Mask 0 has 2 filters and mask 1 has 4 so we set them all as needed.
+  0x551 is where coolant temperature is located and 0x7E8 is for results of queried CAN parameters.
+  */
   CAN_NISSAN.init_Mask(0, 0, 0xFFF);
   CAN_NISSAN.init_Filt(0, 0, 0x551);
   CAN_NISSAN.init_Filt(1, 0, 0x7E8);
@@ -280,35 +318,43 @@ void setup() {
   CAN_BMW.init_Filt(4, 0, 0x1F0);
   CAN_BMW.init_Filt(5, 0, 0x1F0);
 
-  // Perform short beep to ensure its working on startup
+  /*
+  Perform short beep to ensure its working on startup
+  */
   tone(alarmBuzzerPin, 4000, 1500);
   delay(1500);
 }
 
 // Our main loop
 void loop() {
-  // Update counter for execution metrics
-  // loopExecutionCount++;
+  /*
+  // Update counter for execution frequency metrics
+  loopExecutionCount++;
 
-  // if (ptMonitorExecutionTime.call()) {
-  //   float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
-  //   float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
-  //   SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
-  //   SERIAL_PORT_MONITOR.print(loopFrequencyHz);
-  //   SERIAL_PORT_MONITOR.print(" or every ");
-  //   SERIAL_PORT_MONITOR.print(loopExecutionMs);
-  //   SERIAL_PORT_MONITOR.println("ms");
-  //   loopExecutionCount = 1;
-  //   loopExecutionPreviousExecutionMillis = millis();
-  // }
+  if (ptMonitorExecutionTime.call()) {
+    float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
+    float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
+    SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
+    SERIAL_PORT_MONITOR.print(loopFrequencyHz);
+    SERIAL_PORT_MONITOR.print(" or every ");
+    SERIAL_PORT_MONITOR.print(loopExecutionMs);
+    SERIAL_PORT_MONITOR.println("ms");
+    loopExecutionCount = 1;
+    loopExecutionPreviousExecutionMillis = millis();
+  }
+  */
 
-  // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
+  /*
+  Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
+  */
   if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {
     initialiseEcmForQueries(CAN_NISSAN);
     ecmQuerySetupPerformed = true;
   }
 
-  // Check the pretty tiny scheduler tasks and call as needed
+  /*
+  Execute main tasks based on defined timers
+  */
   if (ptCalculateRpm.call()) {
     detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();
@@ -349,7 +395,9 @@ void loop() {
     connectMqttClientToBroker();
   }
 
-  // CAN Based sensor reads here
+  /* 
+  Request CAN data based on defined timers
+  */
   if (ptCanRequestFaults.call() && pollEcmCanFaults == true) {
     requestEcmDataFaults(CAN_NISSAN);
   }
@@ -386,7 +434,9 @@ void loop() {
     requestEcmDataAirIntakeTemp(CAN_NISSAN);
   }
 
-  // Physical sensor reads here
+  /* 
+  Request physical sensor values based on defined timers
+  */
   if (ptGaugeReadValueOilPressure.call()) {
     currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
   }
@@ -407,6 +457,9 @@ void loop() {
     currentCrankCaseVacuumPsi = gaugeReadVacuumPsi(gaugeCrankCaseVacuumPin, atmospheric_voltage);
   }
 
+  /* 
+  Publish data for Grafana Live consumption via defined timers and over MQTT
+  */
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeedFront);
@@ -435,6 +488,9 @@ void loop() {
     publishMqttMetric("80to120", "value", String(getBestEightyToOneTwenty() / 1000));
   }
 
+  /* 
+  Set or unset audible alarm state if conditions are met
+  */
   if (ptAreWeInAlarmState.call()) {
     if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius ||
         currentOilPressurePsi < alarmOilPressurePsi || currentCrankCaseVacuumPsi < alarmCrankCaseVacuumPsi ||
@@ -445,13 +501,19 @@ void loop() {
     }
   }
 
-  // Fetch the latest values from Nissan CAN
+  /* 
+  Fetch the latest values from Nissan CAN
+  */
   nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
 
-  // Fetch the latest values from BMW CAN
+  /* 
+  Fetch the latest values from BMW CAN
+  */
   bmwCanValues currentBmwCanValues = readBmwDataFromCan(CAN_BMW);
 
-  // Pull the values we are interested in from the Nissan CAN response
+  /*
+   Pull the values we are interested in from the Nissan CAN response
+  */
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
   currentOilTempEcm = currentNissanCanValues.oilTempCelcius;
   currentBatteryVoltage = currentNissanCanValues.batteryVoltage;
@@ -463,13 +525,17 @@ void loop() {
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
   currentAirIntakeTemp = currentNissanCanValues.airIntakeTemp;
 
-  // Pull the values were are interested in from the BMW CAN response
+  /*
+  Pull the values were are interested in from the BMW CAN response
+  */
   currentVehicleSpeedFront = currentBmwCanValues.vehicleSpeedFront;
   currentVehicleSpeedRear = currentBmwCanValues.vehicleSpeedRear;
   currentVehicleSpeedRearVariation = currentBmwCanValues.vehicleSpeedRearVariation;
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
-  // Pass the current speed and timestamp values into functions for performance metrics
+  /*
+  Pass the current speed and timestamp values into functions for performance metrics
+  */
   captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeedFront);
   // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
 }
