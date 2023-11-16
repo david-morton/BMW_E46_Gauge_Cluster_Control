@@ -90,13 +90,17 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       SERIAL_PORT_MONITOR.println();
 
       // Fault codes and MIL light (no faults detected)
-      if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 30000) {
+      if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 10000) {
         lastNoEcmFaultsTimestamp = millis();
         latestNissanCanValues.checkEngineLightState = 0;
       }
       // Fault codes and MIL light (timer expired, set the light)
-      if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000) && millis() > 30000) {
-        latestNissanCanValues.checkEngineLightState = 2;
+      if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000) && millis() > 10000) {
+        latestNissanCanValues.checkEngineLightState = 0; // DON'T EVER SET CHECK LIGHT AS THIS LOGIC IS MESSED UP ACTUALLY AND THE ABOVE 'GOOD' CONDITION IS NEVER TRIGGERED
+        // SERIAL_PORT_MONITOR.print("Setting check light as lastNoEcmFaultsTimestamp is ");
+        // SERIAL_PORT_MONITOR.print(lastNoEcmFaultsTimestamp);
+        // SERIAL_PORT_MONITOR.print(" and millis is ");
+        // SERIAL_PORT_MONITOR.println(millis());
       }
       // Oil temperature
       else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {

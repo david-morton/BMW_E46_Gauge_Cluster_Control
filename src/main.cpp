@@ -82,7 +82,7 @@ mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 Define variables for CAN polling behaviour
 */
 bool pollEcmCanMetrics = false;
-bool pollEcmCanFaults = false;
+bool pollEcmCanFaults = true;
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 
 /*
@@ -171,7 +171,7 @@ ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_50MS);
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestFaults = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestFaults = ptScheduler(PT_TIME_5S);
 ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
