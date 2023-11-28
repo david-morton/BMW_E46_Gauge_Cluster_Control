@@ -166,6 +166,7 @@ float wheelSpeedFl = 0;
 float wheelSpeedFr = 0;
 float wheelSpeedRl = 0;
 float wheelSpeedRr = 0;
+float speedScaleFactor = 100 / 96;  // When running a scale factor of 1 we see 96kph for real world speed of 100
 
 bmwCanValues readBmwDataFromCan(mcp2515_can can) {
   unsigned char len = 0;
@@ -178,10 +179,10 @@ bmwCanValues readBmwDataFromCan(mcp2515_can can) {
 
     // Get the current vehicle wheel speeds
     if (canId == 0x1F0) {
-      wheelSpeedFl = (buf[0] + (buf[1] & 15) * 256) / 16.0;
-      wheelSpeedFr = (buf[2] + (buf[3] & 15) * 256) / 16.0;
-      wheelSpeedRl = (buf[4] + (buf[5] & 15) * 256) / 16.0;
-      wheelSpeedRr = (buf[6] + (buf[7] & 15) * 256) / 16.0;
+      wheelSpeedFl = ((buf[0] + (buf[1] & 15) * 256) / 16.0) * speedScaleFactor;
+      wheelSpeedFr = ((buf[2] + (buf[3] & 15) * 256) / 16.0) * speedScaleFactor;
+      wheelSpeedRl = ((buf[4] + (buf[5] & 15) * 256) / 16.0) * speedScaleFactor;
+      wheelSpeedRr = ((buf[6] + (buf[7] & 15) * 256) / 16.0) * speedScaleFactor;
     }
 
     float lowerRearSpeed = (wheelSpeedRl < wheelSpeedRr) ? wheelSpeedRl : wheelSpeedRr;
