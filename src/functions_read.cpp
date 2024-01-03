@@ -166,7 +166,7 @@ float wheelSpeedFl = 0;
 float wheelSpeedFr = 0;
 float wheelSpeedRl = 0;
 float wheelSpeedRr = 0;
-float speedScaleFactor = 100 / 96;  // When running a scale factor of 1 we see 96kph for real world speed of 100
+float speedScaleFactor = 1.06;
 
 bmwCanValues readBmwDataFromCan(mcp2515_can can) {
   unsigned char len = 0;
