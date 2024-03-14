@@ -49,9 +49,9 @@ The hardware used for my particular appliation is:
 - Arduino listens for various 'interesting' broadcast messages on the two CAN networks
   like coolant temperature (Nissan ECU) and wheel speeds (BMW ABS). It then re-broadcasts
   messages to the appropriate location. 
-  Example 1: Engine temp is read from the Nissan CAN network and written to the BMW CAN network
+  - Example 1: Engine temp is read from the Nissan CAN network and written to the BMW CAN network
   for the gauge cluster to display
-  Example 2: Vehicle wheel speeds are read from the BMW CAN network and written to the Nissan
+  - Example 2: Vehicle wheel speeds are read from the BMW CAN network and written to the Nissan
   CAN network for the ECU to know the vehicle speed
 - Arduino uses an ISR (interrupt service routine) to measure engine RPM directly
   off a signal wire provided by the ECU
