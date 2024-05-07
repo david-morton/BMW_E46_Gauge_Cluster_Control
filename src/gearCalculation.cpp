@@ -40,6 +40,8 @@ int getCurrentGear(int *rpm, float *rearWheelSpeed, bool clutchPressed, bool inN
 
     // Calculate driveshaft speed considering final drive ratio
     float driveShaftRpm = rearWheelRpm * ratioFinalDrive;
+
+    // Calculate observed ratio per gear and return when within error limits
   }
 }
 
