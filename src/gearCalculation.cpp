@@ -48,6 +48,8 @@ int getCurrentGear(int *rpm, float *rearWheelSpeed, bool clutchPressed, bool inN
 // 420 rpm at the wheel
 // 1420 rpm at the driveshaft
 
+// 1850rpm as test case (we should determind 4th gear)
+
 // 1st = 5387
 // 2nd = 3300
 // 3rd = 2306
