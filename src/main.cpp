@@ -10,6 +10,7 @@
 #include "functions_poll_ecm.h"
 #include "functions_read.h"
 #include "functions_write.h"
+#include "gearCalculation.h"
 #include "globalHelpers.h"
 
 #define CAN_2515

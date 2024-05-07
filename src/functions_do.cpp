@@ -1,10 +1,8 @@
 #include "functions_do.h"
 
-/****************************************************
- *
- * ISR - Update the RPM counter and time via interrupt
- *
- ****************************************************/
+/* ======================================================================
+   ISR: Update the RPM counter and time via interrupt
+   ====================================================================== */
 volatile unsigned long latestRpmPulseTime = micros(); // Will store latest ISR micros value for calculations
 volatile unsigned long latestRpmPulseCounter = 0;     // Will store latest number of pulses counted
 
@@ -13,11 +11,9 @@ void updateRpmPulse() {
   latestRpmPulseTime = micros();
 }
 
-/****************************************************
- *
- * Function - Calculate the current RPM value from pulses measured via ISR
- *
- ****************************************************/
+/* ======================================================================
+   FUNCTION: Calculate the current RPM value from pulses measured via ISR
+   ====================================================================== */
 const int rpmPulsesPerRevolution = 3;  // Number of pulses on the signal wire per crank revolution
 unsigned long previousRpmPulseTime;    // Will store previous ISR micros value for calculations
 unsigned long previousRpmPulseCounter; // Will store previous the number of pulses counted
@@ -34,30 +30,19 @@ int calculateRpm() {
   previousRpmPulseCounter = latestRpmPulseCounter;
   previousRpmPulseTime = latestRpmPulseTime;
 
-  // Do the calcultion
+  // Do the calcultion and return
   int currentRpm = pulsesPerMinute / rpmPulsesPerRevolution;
-
-  // Debug infos
-  // Serial.print("Micros since last execution is ");
-  // Serial.print(deltaMicros);
-  // Serial.print(", pulses since last execution is ");
-  // Serial.print(deltaRpmPulseCounter);
-  // Serial.print(" and calculated rpm is ");
-  // Serial.println(currentRpm);
-
   return currentRpm;
 }
 
-/****************************************************
- *
- * Function - Calculate and set radiator fan output
- *
- ****************************************************/
-const float fanMinimumEngineTemperature = 90;  // Temperature in celcius when fan will begin opperation
+/* ======================================================================
+   FUNCTION: Calculate and set radiator fan output
+   ====================================================================== */
+const float fanMinimumEngineTemperature = 90; // Temperature in celcius when fan will begin opperation
 const float fanMaximumEngineTemperature = 95; // Temperature in celcius when fan will be opperating at maximum power
-float fanPercentageOutput = 0.0;               // Will store the current fan output percentage
-int fanMinimumPercentageOutput = 40;           // A reasonable minimum fan speed to avoid running it too slow
-int fanPwmPinValue = 0; // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
+float fanPercentageOutput = 0.0;              // Will store the current fan output percentage
+int fanMinimumPercentageOutput = 40;          // A reasonable minimum fan speed to avoid running it too slow
+int fanPwmPinValue = 0;                       // Will store the PWM pin value from 0 - 255 to interface with the motor driver board
 
 int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
   if (engineTemp >= fanMaximumEngineTemperature) {
@@ -86,11 +71,9 @@ int setRadiatorFanOutput(int engineTemp, int engineRpm, byte signalPin) {
   return fanPercentageOutput;
 }
 
-/****************************************************
- *
- * Function - Sound the alarm (but only after a delay) !!
- *
- ****************************************************/
+/* ======================================================================
+   FUNCTION: Sound the alarm (but only after a delay) !!
+   ====================================================================== */
 unsigned long inAlarmDuration = 0;
 unsigned long firstAlarmCallTime = 0;
 
@@ -108,11 +91,9 @@ void alarmEnable(int alarmBuzzerPin, int engineRpm) {
   }
 }
 
-/****************************************************
- *
- * Function - Disable the alarm please thanks
- *
- ****************************************************/
+/* ======================================================================
+   FUNCTION: Disable the alarm please thanks
+   ====================================================================== */
 void alarmDisable(int alarmBuzzerPin) {
   noTone(alarmBuzzerPin);
   firstAlarmCallTime = 0;
