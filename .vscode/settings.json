@@ -1,8 +1,8 @@
 {
-    "cmake.configureOnOpen": false,
-    "files.associations": {
-        "algorithm": "cpp",
-        "limits": "cpp",
-        "valarray": "cpp"
-    }
-}
+    "editor.defaultFormatter": "xaver.clang-format",
+    "files.trimTrailingWhitespace": true,
+    "editor.insertSpaces": true,
+    "editor.autoIndent": "full",
+    "editor.formatOnSave": true,
+    "cmake.configureOnOpen": false
+ }

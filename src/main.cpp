@@ -10,42 +10,51 @@
 #include "functions_poll_ecm.h"
 #include "functions_read.h"
 #include "functions_write.h"
+#include "globalHelpers.h"
 
 #define CAN_2515
 
-/*
-Define pin constancts. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select.
-*/
+/* ======================================================================
+   VARIABLES: Debug and stat output
+   ====================================================================== */
+bool debugSerialReceive = false;
+bool debugSerialSend = false;
+bool debugGeneral = false;
+
+bool reportArduinoLoopStats = true;
+
+/* ======================================================================
+   VARIABLES: Pin constants. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select.
+   ====================================================================== */
 const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 19;                // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 46;       // Digital output pin for PWM signal to radiator fan motor driver board
-const byte gaugeOilPressurePin = A8;         // Analogue pin 8 (Grey)
-const byte gaugeOilTemperaturePin = A9;      // Analogue pin 9 (Brown, uses voltage divider 1.5k ohm)
-const byte gaugeCrankCaseVacuumPin = A10;    // Analogue pin 10 (Red)
-                                             // Analogue pin 11 apparently used internaly for tone generation purposes
-const byte gaugeRadiatorOutletTempPin = A12; // Analogue pin 12 (White, uses voltage divider 1.5k ohm)
-const byte gaugeFuelPressurePin = A13;       // Analogue pin 13 (Black)
-const byte alarmBuzzerPin = 53;
+const byte rpmSignalPin = 5;                // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 4;       // Digital output pin for PWM signal to radiator fan motor driver board
+const byte gaugeOilPressurePin = A0;        // Analogue pin 8 (Grey)
+const byte gaugeOilTemperaturePin = A1;     // Analogue pin 9 (Brown, uses voltage divider 1.5k ohm)
+const byte gaugeCrankCaseVacuumPin = A2;    // Analogue pin 10 (Red)
+                                            // Analogue pin 11 apparently used internaly for tone generation purposes
+const byte gaugeRadiatorOutletTempPin = A3; // Analogue pin 12 (White, uses voltage divider 1.5k ohm)
+const byte gaugeFuelPressurePin = A4;       // Analogue pin 13 (Black)
+const byte alarmBuzzerPin = 6;
 
-/*
-Define CAN shield objects
-*/
+/* ======================================================================
+   OBJECTS: Define CAN shield objects
+   ====================================================================== */
 mcp2515_can CAN_BMW(SPI_SS_PIN_BMW);
 mcp2515_can CAN_NISSAN(SPI_SS_PIN_NISSAN);
 
-/*
-Define variables for CAN polling behaviour
-*/
+/* ======================================================================
+   VARIABLES: General use / functional
+   ====================================================================== */
+// Define variables for CAN polling behaviour
 bool pollEcmCanMetrics = false;
-bool pollEcmCanFaults = true;
+bool pollEcmCanFaults = false;
 bool ecmQuerySetupPerformed = false; // Have we sent the setup payloads to ECM to allow us to query various params
 
-/*
-Define variables for current states
-*/
+// Define variables for current states
 float currentAfRatioBank1;
 float currentAfRatioBank2;
 int currentAirIntakeTemp;
@@ -70,9 +79,7 @@ int currentOilTempEcm;
 int currentRpm = 0;
 unsigned long currentVehicleSpeedTimestamp;
 
-/*
-Define constants for different alarm states
-*/
+// Define constants for different alarm states
 const float alarmCrankCaseVacuumPsi = -5;
 const int alarmEngineTempCelcius = 110;
 const int alarmFuelPressureLowPsi = 48;
@@ -80,36 +87,29 @@ const int alarmFuelPressureHighPsi = 57;
 const int alarmOilPressurePsi = 10;
 const int alarmOilTempCelcius = 120;
 
-/*
-Define variables
-*/
+// Define misc variables
 int consumptionValue = 10;
-int setupRetriesMax = 3;             // The number of times we should loop with delay to configure shields etc
-unsigned long loopExecutionCount;
-unsigned long loopExecutionPreviousExecutionMillis;
-float atmospheric_voltage = 0.5707;  // The pressure sensor voltage before we start the car, this is 0psi
+int setupRetriesMax = 3;            // The number of times we should loop with delay to configure shields etc
+float atmospheric_voltage = 0.5707; // The pressure sensor voltage before we start the car, this is 0psi
+unsigned long arduinoLoopExecutionCount = 0;
 
-/*
-Define misc CAN payload object
-*/
+// Define misc CAN payload object
 unsigned char canPayloadMisc[8] = {0, 0, 0, 0, 0, 0, 0, 0}; // Check light, fuel consumption and temp alarm light
 
-/*
-Create the MCP9808 temperature sensor object used in the ECU compartment temp measurement
-*/
+// Create the MCP9808 temperature sensor object used in the ECU compartment temp measurement
 Adafruit_MCP9808 tempSensorEngineElectronics = Adafruit_MCP9808();
 
-/*
-Define function - Write misc payloads to BMW CAN
-*/
+/* ======================================================================
+   FUNCTION: Write misc payloads to BMW CAN
+   ====================================================================== */
 void canWriteMisc() {
-  canPayloadMisc[0] = currentCheckEngineLightState;         // 2 for check engine light
-                                                            // 16 for EML light
-                                                            // 18 for check engine AND EML
-                                                            // 0 for neither
-  canPayloadMisc[1] = consumptionValue;                     // Fuel consumption LSB
-  canPayloadMisc[2] = (consumptionValue >> 8);              // Fuel consumption MSB
-  if (currentEngineTempCelsius >= alarmEngineTempCelcius)   // Set the red alarm light on the temp gauge if needed
+  canPayloadMisc[0] = currentCheckEngineLightState;       // 2 for check engine light
+                                                          // 16 for EML light
+                                                          // 18 for check engine AND EML
+                                                          // 0 for neither
+  canPayloadMisc[1] = consumptionValue;                   // Fuel consumption LSB
+  canPayloadMisc[2] = (consumptionValue >> 8);            // Fuel consumption MSB
+  if (currentEngineTempCelsius >= alarmEngineTempCelcius) // Set the red alarm light on the temp gauge if needed
     canPayloadMisc[3] = 8;
   else
     canPayloadMisc[3] = 0;
@@ -117,52 +117,58 @@ void canWriteMisc() {
   CAN_BMW.sendMsgBuf(0x545, 0, 8, canPayloadMisc);
 }
 
-/*
-Define our pretty tiny scheduler objects
-*/
-ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
-ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_200MS);
-ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanRequestEcmAirIntakeTemp = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_50MS);
-ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
-ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
-ptScheduler ptCanRequestFaults = ptScheduler(PT_TIME_5S);
-ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
+/* ======================================================================
+   OBJECTS: Pretty tiny scheduler objects / tasks
+   ====================================================================== */
+// High frequency tasks
 ptScheduler ptCanWriteMisc = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteRpm = ptScheduler(PT_TIME_10MS);
 ptScheduler ptCanWriteSpeed = ptScheduler(PT_TIME_20MS);
 ptScheduler ptCanWriteTemp = ptScheduler(PT_TIME_10MS);
-ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_5S);
+ptScheduler ptCanRequestAirFuelRatioBank1 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAirFuelRatioBank2 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAlphaPercentageBank1 = ptScheduler(PT_TIME_50MS);
+ptScheduler ptCanRequestAlphaPercentageBank2 = ptScheduler(PT_TIME_50MS);
+
+// Medium frequency tasks
+ptScheduler ptAreWeInAlarmState = ptScheduler(PT_TIME_500MS);
+ptScheduler ptCalculateRpm = ptScheduler(PT_TIME_200MS);
+ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
-ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
 ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
+ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
+
+// Low frequency tasks
+ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestOilTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanWriteDiagnosticKeepalive = ptScheduler(PT_TIME_1S);
+ptScheduler ptGaugeReadValueFuelPressure = ptScheduler(PT_TIME_1S);
+ptScheduler ptCanRequestEcmAirIntakeTemp = ptScheduler(PT_TIME_1S);
+ptScheduler ptLogNissanCanQueryData = ptScheduler(PT_TIME_1S);
+ptScheduler ptReportArduinoLoopStats = ptScheduler(PT_TIME_5S);
 ptScheduler ptGaugeReadValueRadiatorOutletTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptGaugeReadValueOilTemp = ptScheduler(PT_TIME_5S);
-ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
 ptScheduler ptPublishMqttData1S = ptScheduler(PT_TIME_1S);
 ptScheduler ptReadEngineElectronicsTemp = ptScheduler(PT_TIME_5S);
 ptScheduler ptSetRadiatorFanOutput = ptScheduler(PT_TIME_5S);
+ptScheduler ptCanRequestFaults = ptScheduler(PT_TIME_5S);
+ptScheduler ptConnectToMqttBroker = ptScheduler(PT_TIME_5S);
 
-/*
-Define a debug task for monitoring how fast the code is executing
-*/
-ptScheduler ptMonitorExecutionTime = ptScheduler(PT_TIME_10S);
-
-/*
-Perform main setup tasks on boot
-*/
+/* ======================================================================
+   SETUP
+   ====================================================================== */
 void setup() {
-  SERIAL_PORT_MONITOR.begin(115200);
+  Serial.begin(115200);
   while (!Serial) {
   };
 
-  /*
-  Set the current 0psi voltage of the crank case vacuum sensor if engine is off
-  so that any variation in atmospheric pressure is taken into account
-  */
+  // Initialise the multiplexer analogue input board input pin
+  setupMux();
+
+  // Initialise ethernet shield
+  initialiseEthernetShield();
+
+  // Set the current 0psi voltage of the crank case vacuum sensor if engine is off so that any variation in atmospheric pressure is taken into account
   if (currentRpm == 0) {
     float totalVoltage = 0.0;
     for (int i = 0; i < 10; i++) {
@@ -172,80 +178,67 @@ void setup() {
       delay(20);
     }
     atmospheric_voltage = totalVoltage / 10.0;
-    SERIAL_PORT_MONITOR.print("INFO: Initialised crank case vacuum sensor at ");
-    SERIAL_PORT_MONITOR.print(atmospheric_voltage);
-    SERIAL_PORT_MONITOR.println(" V");
+    Serial.print("INFO: Initialised crank case vacuum sensor at ");
+    Serial.print(atmospheric_voltage);
+    Serial.println(" V");
   }
 
-  /*
-  Initialise ethernet shield
-  */
-  initialiseEthernetShield();
-
-  /*
-  Configure CAN shield interfaces
-  */
-  SERIAL_PORT_MONITOR.println("INFO - Initialising BMW CAN shield");
+  // Configure CAN shield interfaces
+  Serial.println("INFO - Initialising BMW CAN shield");
 
   for (int i = 0; i < setupRetriesMax; i++) {
     bool result = CAN_BMW.begin(CAN_500KBPS);
     if (result == CAN_OK) {
-      SERIAL_PORT_MONITOR.println("\tOK - BMW CAN shield initialised");
+      Serial.println("\tOK - BMW CAN shield initialised");
       break;
     } else if (result != CAN_OK) {
-      SERIAL_PORT_MONITOR.println("\tERROR - BMW CAN shield init failed, retrying ...");
+      Serial.println("\tERROR - BMW CAN shield init failed, retrying ...");
       delay(500);
     }
     if (i == setupRetriesMax) {
-      SERIAL_PORT_MONITOR.println("\tFATAL - BMW CAN shield init failed");
+      Serial.println("\tFATAL - BMW CAN shield init failed");
     }
   }
 
-  SERIAL_PORT_MONITOR.println("INFO - Initialising Nissan CAN shield");
+  Serial.println("INFO - Initialising Nissan CAN shield");
 
   for (int i = 0; i < setupRetriesMax; i++) {
     bool result = CAN_NISSAN.begin(CAN_500KBPS);
     if (result == CAN_OK) {
-      SERIAL_PORT_MONITOR.println("\tOK - Nissan CAN shield initialised");
+      Serial.println("\tOK - Nissan CAN shield initialised");
       break;
     } else if (result != CAN_OK) {
-      SERIAL_PORT_MONITOR.println("\tERROR - Nissan CAN shield init failed, retrying ...");
+      Serial.println("\tERROR - Nissan CAN shield init failed, retrying ...");
       delay(500);
     }
     if (i == setupRetriesMax) {
-      SERIAL_PORT_MONITOR.println("\tFATAL - Nissan CAN shield init failed");
+      Serial.println("\tFATAL - Nissan CAN shield init failed");
     }
   }
 
-  /*
-  Configure interrupt for RPM signal input
-  */
+  // Configure interrupt for RPM signal input
   pinMode(rpmSignalPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
 
-  /*
-  Configure pins for output to fan controller
-  */
+  // Configure pins for output to fan controller
   pinMode(fanDriverPwmSignalPin, OUTPUT);
 
-  /*
-  Configure the temperature sensor located in the ECU compartment
-  */
-  SERIAL_PORT_MONITOR.println("INFO - Initialising MCP9808 temperature sensor");
+  // Configure the temperature sensor located in the ECU compartment
+  Serial.println("INFO - Initialising MCP9808 temperature sensor");
 
   for (int i = 0; i < setupRetriesMax; i++) {
     bool result = tempSensorEngineElectronics.begin(0x18);
     if (result == 1) {
-      SERIAL_PORT_MONITOR.println("\tOK - MCP9808 temperature sensor initialised");
+      Serial.println("\tOK - MCP9808 temperature sensor initialised");
       tempSensorEngineElectronics.setResolution(3);
       break;
     } else if (result != 1) {
-      SERIAL_PORT_MONITOR.println("\tERROR - MCP9808 temperature sensor init failed, retrying ...");
+      Serial.println("\tERROR - MCP9808 temperature sensor init failed, retrying ...");
       delay(500);
     }
     if (i == setupRetriesMax) {
-      SERIAL_PORT_MONITOR.print("\tFATAL - MCP9808 temperature sensor not found, returned status ");
-      SERIAL_PORT_MONITOR.println(result);
+      Serial.print("\tFATAL - MCP9808 temperature sensor not found, returned status ");
+      Serial.println(result);
     }
   }
 
@@ -276,43 +269,22 @@ void setup() {
   CAN_BMW.init_Filt(4, 0, 0x1F0);
   CAN_BMW.init_Filt(5, 0, 0x1F0);
 
-  /*
-  Perform short beep to ensure its working on startup
-  */
+  // Perform short beep to ensure its working on startup
   tone(alarmBuzzerPin, 4000, 1500);
   delay(1500);
 }
 
-// Our main loop
+/* ======================================================================
+   MAIN LOOP
+   ====================================================================== */
 void loop() {
-  /*
-  // Update counter for execution frequency metrics
-  loopExecutionCount++;
-
-  if (ptMonitorExecutionTime.call()) {
-    float loopFrequencyHz = (loopExecutionCount / ((millis() - loopExecutionPreviousExecutionMillis) / 1000));
-    float loopExecutionMs = (millis() - loopExecutionPreviousExecutionMillis) / loopExecutionCount;
-    SERIAL_PORT_MONITOR.print("Loop execution frequency (Hz): ");
-    SERIAL_PORT_MONITOR.print(loopFrequencyHz);
-    SERIAL_PORT_MONITOR.print(" or every ");
-    SERIAL_PORT_MONITOR.print(loopExecutionMs);
-    SERIAL_PORT_MONITOR.println("ms");
-    loopExecutionCount = 1;
-    loopExecutionPreviousExecutionMillis = millis();
-  }
-  */
-
-  /*
-  Wait until we are sure the ECM is online and publishing data before we call to setup for queried data
-  */
+  // Wait until we are sure the ECM is online and publishing data before we call to setup for queried data`
   if (ecmQuerySetupPerformed == false && currentEngineTempCelsius != 0) {
     initialiseEcmForQueries(CAN_NISSAN);
     ecmQuerySetupPerformed = true;
   }
 
-  /*
-  Execute main tasks based on defined timers
-  */
+  // Execute main tasks based on defined timers`
   if (ptCalculateRpm.call()) {
     detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();
@@ -341,6 +313,10 @@ void loop() {
     canWriteMisc();
   }
 
+  if (ptCanWriteDiagnosticKeepalive.call()) {
+    canWriteDiagnosticKeepalive(CAN_NISSAN);
+  }
+
   if (ptSetRadiatorFanOutput.call()) {
     currentFanDutyPercentage = setRadiatorFanOutput(currentEngineTempCelsius, currentRpm, fanDriverPwmSignalPin);
   }
@@ -353,9 +329,7 @@ void loop() {
     connectMqttClientToBroker();
   }
 
-  /* 
-  Request CAN data based on defined timers
-  */
+  // Request CAN data based on defined timers
   if (ptCanRequestFaults.call() && pollEcmCanFaults == true) {
     requestEcmDataFaults(CAN_NISSAN);
   }
@@ -392,9 +366,7 @@ void loop() {
     requestEcmDataAirIntakeTemp(CAN_NISSAN);
   }
 
-  /* 
-  Request physical sensor values based on defined timers
-  */
+  // Request physical sensor values based on defined timers
   if (ptGaugeReadValueOilPressure.call()) {
     currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
   }
@@ -415,9 +387,7 @@ void loop() {
     currentCrankCaseVacuumPsi = gaugeReadVacuumPsi(gaugeCrankCaseVacuumPin, atmospheric_voltage);
   }
 
-  /* 
-  Publish data for Grafana Live consumption via defined timers and over MQTT
-  */
+  // Publish data for Grafana Live consumption via defined timers and over MQTT
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeedFront);
@@ -446,9 +416,7 @@ void loop() {
     publishMqttMetric("80to120", "value", String(getBestEightyToOneTwenty() / 1000));
   }
 
-  /* 
-  Set or unset audible alarm state if conditions are met
-  */
+  // Set or unset audible alarm state if conditions are met
   if (ptAreWeInAlarmState.call()) {
     if (currentOilTempEcm > alarmOilTempCelcius || currentEngineTempCelsius > alarmEngineTempCelcius ||
         currentOilPressurePsi < alarmOilPressurePsi || currentCrankCaseVacuumPsi < alarmCrankCaseVacuumPsi ||
@@ -459,19 +427,13 @@ void loop() {
     }
   }
 
-  /* 
-  Fetch the latest values from Nissan CAN
-  */
+  // Fetch the latest values from Nissan CAN
   nissanCanValues currentNissanCanValues = readNissanDataFromCan(CAN_NISSAN);
 
-  /* 
-  Fetch the latest values from BMW CAN
-  */
+  // Fetch the latest values from BMW CAN
   bmwCanValues currentBmwCanValues = readBmwDataFromCan(CAN_BMW);
 
-  /*
-   Pull the values we are interested in from the Nissan CAN response
-  */
+  // Pull the values we are interested in from the Nissan CAN response
   currentEngineTempCelsius = currentNissanCanValues.engineTempCelsius;
   currentOilTempEcm = currentNissanCanValues.oilTempCelcius;
   currentBatteryVoltage = currentNissanCanValues.batteryVoltage;
@@ -483,17 +445,44 @@ void loop() {
   currentCheckEngineLightState = currentNissanCanValues.checkEngineLightState;
   currentAirIntakeTemp = currentNissanCanValues.airIntakeTemp;
 
-  /*
-  Pull the values were are interested in from the BMW CAN response
-  */
+  if (ptLogNissanCanQueryData.call() && 1 == 2) {
+    Serial.print("Engine temp: ");
+    Serial.println(currentEngineTempCelsius);
+    Serial.print("Oil temp: ");
+    Serial.println(currentOilTempEcm);
+    Serial.print("Battery voltage: ");
+    Serial.println(currentBatteryVoltage);
+    Serial.print("Pedal position: ");
+    Serial.println(currentGasPedalPosition);
+    Serial.print("AFR Bank 1: ");
+    Serial.println(currentAfRatioBank1);
+    Serial.print("AFR Bank 2: ");
+    Serial.println(currentAfRatioBank2);
+    Serial.print("Alpha Percentage Bank 1: ");
+    Serial.println(currentAlphaPercentageBank1);
+    Serial.print("Alpha Percentage Bank 2: ");
+    Serial.println(currentAlphaPercentageBank2);
+    Serial.print("Check light status: ");
+    Serial.println(currentCheckEngineLightState);
+    Serial.print("Air intake temp: ");
+    Serial.println(currentAirIntakeTemp);
+  }
+
+  // Pull the values were are interested in from the BMW CAN response
   currentVehicleSpeedFront = currentBmwCanValues.vehicleSpeedFront;
   currentVehicleSpeedRear = currentBmwCanValues.vehicleSpeedRear;
   currentVehicleSpeedRearVariation = currentBmwCanValues.vehicleSpeedRearVariation;
   currentVehicleSpeedTimestamp = currentBmwCanValues.timestamp;
 
-  /*
-  Pass the current speed and timestamp values into functions for performance metrics
-  */
+  // Pass the current speed and timestamp values into functions for performance metrics
   captureAccellerationTimes(currentVehicleSpeedTimestamp, currentVehicleSpeedFront);
   // captureAccellerationDetailedData(currentVehicleSpeedTimestamp, currentVehicleSpeed);
+
+  // Increment loop counter if needed so we can report on stats (806 Hz for Mega and 4550 Hz for Uno R4)
+  if (millis() > 10000 && reportArduinoLoopStats) {
+    arduinoLoopExecutionCount++;
+    if (ptReportArduinoLoopStats.call()) {
+      reportArduinoLoopRate(&arduinoLoopExecutionCount);
+    }
+  }
 }

@@ -113,7 +113,7 @@ void captureAccellerationDetailedData(unsigned long speedTimestamp, float speedV
   if (speedValue >= dynoStartSpeed && previousDynoSpeed < dynoStartSpeed && dynoRunActive == false) {
     dynoRunActive = true;
     dynoStartTimestamp = speedTimestamp;
-    SERIAL_PORT_MONITOR.println("Starting dyno run data logging ...");
+    Serial.println("Starting dyno run data logging ...");
   }
 
   // Log dyno data if we are in an active run and conditions are met, tap out if too many samples recorded
@@ -126,7 +126,7 @@ void captureAccellerationDetailedData(unsigned long speedTimestamp, float speedV
     arrayLocation++;
     // Stop recording if we reach max samples
     if (arrayLocation == (maxArraySamples - 1)) {
-      SERIAL_PORT_MONITOR.print("Stopping dyno run due to max samples reached.");
+      Serial.print("Stopping dyno run due to max samples reached.");
       memset(performanceDataArray, 0, sizeof(performanceDataArray));
       arrayLocation = 0;
       dynoRunActive = false;
@@ -136,29 +136,29 @@ void captureAccellerationDetailedData(unsigned long speedTimestamp, float speedV
   // Exit the dyno run if we detect a complete run
   if (dynoRunActive == true && speedValue >= dynoEndSpeed && previousDynoSpeed < dynoEndSpeed) {
     dynoRunActive = false;
-    SERIAL_PORT_MONITOR.print("Stopping dyno run data log and clearing array after ");
-    SERIAL_PORT_MONITOR.print(arrayLocation + 1);
-    SERIAL_PORT_MONITOR.println(" samples.");
+    Serial.print("Stopping dyno run data log and clearing array after ");
+    Serial.print(arrayLocation + 1);
+    Serial.println(" samples.");
     // Print the output for later diagnosis / graphing
     for (int i = 0; i < arrayLocation; i++) {
-      SERIAL_PORT_MONITOR.print(performanceDataArray[i].timestamp);
-      SERIAL_PORT_MONITOR.print(",");
-      SERIAL_PORT_MONITOR.println(performanceDataArray[i].speed);
+      Serial.print(performanceDataArray[i].timestamp);
+      Serial.print(",");
+      Serial.println(performanceDataArray[i].speed);
     }
     memset(performanceDataArray, 0, sizeof(performanceDataArray));
     arrayLocation = 0;
-    SERIAL_PORT_MONITOR.println("");
+    Serial.println("");
   }
 
   // Exit the dyno run if we time out
   if (dynoRunActive == true && dynoMillisElapsed > dynoMillisCutofftime) {
     dynoRunActive = false;
-    SERIAL_PORT_MONITOR.println("Stopping dyno run due to timeout");
-    SERIAL_PORT_MONITOR.print("dynoMilliselapsed: ");
-    SERIAL_PORT_MONITOR.print(dynoMillisElapsed);
-    SERIAL_PORT_MONITOR.print(" > ");
-    SERIAL_PORT_MONITOR.println(dynoMillisCutofftime);
-    SERIAL_PORT_MONITOR.println("");
+    Serial.println("Stopping dyno run due to timeout");
+    Serial.print("dynoMilliselapsed: ");
+    Serial.print(dynoMillisElapsed);
+    Serial.print(" > ");
+    Serial.println(dynoMillisCutofftime);
+    Serial.println("");
     memset(performanceDataArray, 0, sizeof(performanceDataArray));
     arrayLocation = 0;
   }

@@ -13,5 +13,6 @@ void canWriteTemp(int, mcp2515_can);
 void canWriteRpm(int, mcp2515_can);
 void canWriteSpeed(int, mcp2515_can);
 void canWriteClutchStatus(int, mcp2515_can);
+void canWriteDiagnosticKeepalive(mcp2515_can);
 
 #endif

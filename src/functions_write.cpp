@@ -54,7 +54,7 @@ void canWriteRpm(int currentRpm, mcp2515_can can) {
 
       rpmHexConversionMultipler = y0 + (y1 - y0) * (currentRpm - x0) / (x1 - x0);
     }
-    
+
     // Write the calculated value
     multipliedRpm = currentRpm * rpmHexConversionMultipler;
     canPayloadRpm[2] = multipliedRpm;        // LSB
@@ -78,9 +78,20 @@ void canWriteSpeed(int currentVehicleSpeed, mcp2515_can can) {
   // canPayloadSpeed[5] = speedValue >> 8;
   // can.sendMsgBuf(0x284, 0, 8, canPayloadSpeed);   // ID used for 2009 JDM Nissan Skyline 370GT ECU
   can.sendMsgBuf(0x280, 0, 8, canPayloadSpeed);      // ID used for 2011 USDM Nissan 370Z ECU
-  // Also could try 354 but different bytes and needs different calculation
 }
- 
+
+/*****************************************************
+ *
+ * Function - Write a diagnostic session keepalive
+ *
+ ****************************************************/
+unsigned char canPayloadKeepalive[8] = {0x03, 0x22, 0x12, 0x01, 0x00, 0x00, 0x00, 0x00};
+
+void canWriteDiagnosticKeepalive(mcp2515_can can) {
+  can.sendMsgBuf(0x7DF, 0, 8, canPayloadKeepalive);
+  // Serial.println("Sending keepalive");
+}
+
 /*****************************************************
  *
  * Function - Write the current clutch status to the CAN bus for ECU consumption
@@ -94,10 +105,10 @@ void canWriteClutchStatus(int currentClutchStatus, mcp2515_can can) {
   can.sendMsgBuf(0x35d, 0, 8, canPayloadClutchStatusBig);
 
   // Debug to look at the bits which are set on a particular byte
-  // SERIAL_PORT_MONITOR.println();
+  // Serial.println();
   // for (int i = 7; i >= 0; i--)
   // {
   //     bool b = bitRead(canPayloadClutchStatus[1], i);
-  //     SERIAL_PORT_MONITOR.print(b);
+  //     Serial.print(b);
   // }
 }

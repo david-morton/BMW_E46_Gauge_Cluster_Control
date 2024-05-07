@@ -38,12 +38,12 @@ int calculateRpm() {
   int currentRpm = pulsesPerMinute / rpmPulsesPerRevolution;
 
   // Debug infos
-  // SERIAL_PORT_MONITOR.print("Micros since last execution is ");
-  // SERIAL_PORT_MONITOR.print(deltaMicros);
-  // SERIAL_PORT_MONITOR.print(", pulses since last execution is ");
-  // SERIAL_PORT_MONITOR.print(deltaRpmPulseCounter);
-  // SERIAL_PORT_MONITOR.print(" and calculated rpm is ");
-  // SERIAL_PORT_MONITOR.println(currentRpm);
+  // Serial.print("Micros since last execution is ");
+  // Serial.print(deltaMicros);
+  // Serial.print(", pulses since last execution is ");
+  // Serial.print(deltaRpmPulseCounter);
+  // Serial.print(" and calculated rpm is ");
+  // Serial.println(currentRpm);
 
   return currentRpm;
 }
@@ -113,7 +113,7 @@ void alarmEnable(int alarmBuzzerPin, int engineRpm) {
  * Function - Disable the alarm please thanks
  *
  ****************************************************/
-void alarmDisable(int alarmBuzzerPin) { 
+void alarmDisable(int alarmBuzzerPin) {
   noTone(alarmBuzzerPin);
   firstAlarmCallTime = 0;
 }

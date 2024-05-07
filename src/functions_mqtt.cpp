@@ -20,31 +20,31 @@ PubSubClient mqttClient(eth_client);                   // Create MQTT client on 
 
 // Function for setting up the ethernet shield
 void initialiseEthernetShield() {
-  SERIAL_PORT_MONITOR.println("INFO - Initialising ethernet shield");
+  Serial.println("INFO - Initialising ethernet shield");
   Ethernet.init(ETH_SS_PIN);
   Ethernet.begin(eth_mac, eth_ip);
 
   char eth_status = Ethernet.hardwareStatus();
 
   if (eth_status == EthernetW5500) {
-    SERIAL_PORT_MONITOR.println("\tOK - W5500 Ethernet controller detected");
+    Serial.println("\tOK - W5500 Ethernet controller detected");
   } else if (eth_status != EthernetW5500) {
-    SERIAL_PORT_MONITOR.print("\tFATAL - Ethernet status is ");
-    SERIAL_PORT_MONITOR.println(eth_status);
+    Serial.print("\tFATAL - Ethernet status is ");
+    Serial.println(eth_status);
   }
 }
 
 // Function for creating the MQTT client and connecting to server
 void connectMqttClientToBroker() {
   if (!mqttClient.connected()) {
-    SERIAL_PORT_MONITOR.println("INFO - Connecting to MQTT broker");
+    Serial.println("INFO - Connecting to MQTT broker");
     mqttClient.setServer(mqtt_server, mqtt_port);
     mqttClient.setKeepAlive(5);
     if (mqttClient.connect("arduino-client")) {
-      SERIAL_PORT_MONITOR.println("\tOK - MQTT Client connected");
+      Serial.println("\tOK - MQTT Client connected");
       mqttBrokerConnected = true;
     } else {
-      SERIAL_PORT_MONITOR.println("\tFATAL - MQTT Client not connected");
+      Serial.println("\tFATAL - MQTT Client not connected");
       mqttBrokerConnected = false;
     }
   }

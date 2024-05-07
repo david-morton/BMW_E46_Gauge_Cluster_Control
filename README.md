@@ -48,7 +48,7 @@ The hardware used for my particular appliation is:
 # Implementation Detail & Architecture
 - Arduino listens for various 'interesting' broadcast messages on the two CAN networks
   like coolant temperature (Nissan ECU) and wheel speeds (BMW ABS). It then re-broadcasts
-  messages to the appropriate location. 
+  messages to the appropriate location.
   - Example 1: Engine temp is read from the Nissan CAN network and written to the BMW CAN network
   for the gauge cluster to display
   - Example 2: Vehicle wheel speeds are read from the BMW CAN network and written to the Nissan
@@ -86,4 +86,4 @@ RPM and send the value to the cluster.
 - Vary the Waveshare screen brightness based on ambient light sensor
 - Implement the screens touch capability to cycle through dashboards
 - Implement front / rear cameras to help with parking and interface
-  with the screen
+  with the screen via composite to HDMI conversion

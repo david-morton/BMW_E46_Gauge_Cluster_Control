@@ -76,18 +76,20 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
     // Read any responses that are from queries sent to the ECM
     else if (canId == 0x7E8) {
 
-      // DEBUG HERE STARTS
-      SERIAL_PORT_MONITOR.print("0x");
-      SERIAL_PORT_MONITOR.print(canId, HEX);
-      SERIAL_PORT_MONITOR.print("\t");
-      for (int i = 0; i < len; i++) {
-        if (buf[i] < 0x10) {
-          Serial.print("0");
+      // Some skanky debug for printing the received data to console
+      if (1 == 1) {
+        Serial.print("0x");
+        Serial.print(canId, HEX);
+        Serial.print("\t");
+        for (int i = 0; i < len; i++) {
+          if (buf[i] < 0x10) {
+            Serial.print("0");
+          }
+          Serial.print(buf[i], HEX);
+          Serial.print("\t");
         }
-        SERIAL_PORT_MONITOR.print(buf[i], HEX);
-        SERIAL_PORT_MONITOR.print("\t");
+        Serial.println();
       }
-      SERIAL_PORT_MONITOR.println();
 
       // Fault codes and MIL light (no faults detected)
       if (buf[0] == 0x02 && buf[1] == 0x57 && buf[2] == 0x00 && millis() > 10000) {
@@ -97,10 +99,10 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       // Fault codes and MIL light (timer expired, set the light)
       if (lastNoEcmFaultsTimestamp < (millis() - secondsToSetCheckLight * 1000) && millis() > 10000) {
         latestNissanCanValues.checkEngineLightState = 0; // DON'T EVER SET CHECK LIGHT AS THIS LOGIC IS MESSED UP ACTUALLY AND THE ABOVE 'GOOD' CONDITION IS NEVER TRIGGERED
-        // SERIAL_PORT_MONITOR.print("Setting check light as lastNoEcmFaultsTimestamp is ");
-        // SERIAL_PORT_MONITOR.print(lastNoEcmFaultsTimestamp);
-        // SERIAL_PORT_MONITOR.print(" and millis is ");
-        // SERIAL_PORT_MONITOR.println(millis());
+        // Serial.print("Setting check light as lastNoEcmFaultsTimestamp is ");
+        // Serial.print(lastNoEcmFaultsTimestamp);
+        // Serial.print(" and millis is ");
+        // Serial.println(millis());
       }
       // Oil temperature
       else if (buf[0] == 0x04 && buf[1] == 0x62 && buf[2] == 0x11 && buf[3] == 0x1F) {
@@ -123,12 +125,16 @@ nissanCanValues readNissanDataFromCan(mcp2515_can can) {
       else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x25) {
         int raw_value = (buf[4] << 8) | buf[5];
         float airFuelRatioBank1Voltage = raw_value / 200.0;
+        Serial.print("Calculating AFR voltage bank 1 as ");
+        Serial.println(airFuelRatioBank1Voltage);
         latestNissanCanValues.airFuelRatioBank1 = calculateAfRatioFromVoltage(airFuelRatioBank1Voltage);
       }
       // Air fuel ratio bank 2
       else if (buf[0] == 0x05 && buf[1] == 0x62 && buf[2] == 0x12 && buf[3] == 0x26) {
         int raw_value = (buf[4] << 8) | buf[5];
         float airFuelRatioBank2Voltage = raw_value / 200.0;
+        Serial.print("Calculating AFR voltage bank 2 as ");
+        Serial.println(airFuelRatioBank2Voltage);
         latestNissanCanValues.airFuelRatioBank2 = calculateAfRatioFromVoltage(airFuelRatioBank2Voltage);
       }
       // Alpha percentage bank 1
