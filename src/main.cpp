@@ -41,6 +41,8 @@ const byte gaugeCrankCaseVacuumPin = A2;    // Analogue pin 10 (Red)
 const byte gaugeRadiatorOutletTempPin = A3; // Analogue pin 12 (White, uses voltage divider 1.5k ohm)
 const byte gaugeFuelPressurePin = A4;       // Analogue pin 13 (Black)
 const byte alarmBuzzerPin = 6;
+const byte clutchSwitchPin = 7;
+const byte neutralSwitchPin = 8;
 
 /* ======================================================================
    OBJECTS: Define CAN shield objects
@@ -73,13 +75,16 @@ float currentVehicleSpeedRearVariation;
 int currentAlphaPercentageBank1;
 int currentAlphaPercentageBank2;
 int currentCheckEngineLightState = 2; // Setting initial state so check engine light illuminates as soon as possible when powered on
-int currentClutchStatus;
 int currentEngineTempCelsius;
 int currentFanDutyPercentage;
 int currentGasPedalPosition;
 int currentOilTempEcm;
 int currentRpm = 0;
+int currentGear = 0;
 unsigned long currentVehicleSpeedTimestamp;
+
+bool clutchPressed = true;
+bool inNeutral = true;
 
 // Define constants for different alarm states
 const float alarmCrankCaseVacuumPsi = -5;
@@ -139,6 +144,7 @@ ptScheduler ptCanRequestGasPedalPercentage = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueCrankCaseVacuum = ptScheduler(PT_TIME_100MS);
 ptScheduler ptGaugeReadValueOilPressure = ptScheduler(PT_TIME_100MS);
 ptScheduler ptPublishMqttData100Ms = ptScheduler(PT_TIME_100MS);
+ptScheduler ptGetCurrentClutchNeutralAndGear = ptScheduler(PT_TIME_100MS);
 
 // Low frequency tasks
 ptScheduler ptCanRequestBatteryVoltage = ptScheduler(PT_TIME_1S);
@@ -222,8 +228,10 @@ void setup() {
   pinMode(rpmSignalPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(rpmSignalPin), updateRpmPulse, RISING);
 
-  // Configure pins for output to fan controller
+  // Configure pins for output to fan controller, clutch swith and neutral switch
   pinMode(fanDriverPwmSignalPin, OUTPUT);
+  pinMode(clutchSwitchPin, INPUT);
+  pinMode(neutralSwitchPin, INPUT);
 
   // Configure the temperature sensor located in the ECU compartment
   Serial.println("INFO - Initialising MCP9808 temperature sensor");
@@ -286,7 +294,14 @@ void loop() {
     ecmQuerySetupPerformed = true;
   }
 
-  // Execute main tasks based on defined timers`
+  // Get the clutch, neutral status and determine the current gear from speed and rpm
+  if (ptGetCurrentClutchNeutralAndGear.call()) {
+    clutchPressed = getClutchStatus(clutchSwitchPin);
+    inNeutral = getNeutralStatus(neutralSwitchPin);
+    currentGear = getCurrentGear(&currentRpm, &currentVehicleSpeedRear, &clutchPressed, &inNeutral);
+  }
+
+  // Execute main tasks based on defined timers
   if (ptCalculateRpm.call()) {
     detachInterrupt(digitalPinToInterrupt(rpmSignalPin));
     currentRpm = calculateRpm();

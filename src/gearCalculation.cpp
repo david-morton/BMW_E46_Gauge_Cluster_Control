@@ -5,15 +5,45 @@
 /* ======================================================================
    FUNCTION: Determine if we are in neutral
    ====================================================================== */
-bool getNeutralStatus() {
-  return true;
+bool previousNeutralStatus;
+
+bool getNeutralStatus(byte pin) {
+  bool pinStatus = digitalRead(pin);
+  if (pinStatus == HIGH) {
+    if (pinStatus != previousNeutralStatus) {
+      DEBUG_GEARS("Transmission is in neutral");
+      previousNeutralStatus = pinStatus;
+    }
+    return true;
+  } else {
+    if (pinStatus != previousNeutralStatus) {
+      DEBUG_GEARS("Transmission is in gear");
+      previousNeutralStatus = pinStatus;
+    }
+    return false;
+  }
 }
 
 /* ======================================================================
    FUNCTION: Determine if the clutch is pressed
    ====================================================================== */
-bool getClutchStatus() {
-  return true;
+bool previousClutchStatus;
+
+bool getClutchStatus(byte pin) {
+  bool pinStatus = digitalRead(pin);
+  if (pinStatus == HIGH) {
+    if (pinStatus != previousNeutralStatus) {
+      DEBUG_GEARS("Clutch was pressed");
+      previousNeutralStatus = pinStatus;
+    }
+    return true;
+  } else {
+    if (pinStatus != previousNeutralStatus) {
+      DEBUG_GEARS("Clutch was released");
+      previousNeutralStatus = pinStatus;
+    }
+    return false;
+  }
 }
 
 /* ======================================================================
@@ -24,15 +54,15 @@ const int tyreProfile = 35;
 const int wheelSizeInches = 18;
 const int rollingCircumferenceMm = PI * ((wheelSizeInches * 25.4) + (2 * (tyreWidth * tyreProfile / 100.0)));
 
-const float ratioFinalDrive = 3.38;
 const float ratioGear1 = 3.794;
 const float ratioGear2 = 2.324;
 const float ratioGear3 = 1.624;
 const float ratioGear4 = 1.271;
 const float ratioGear5 = 1.0;
 const float ratioGear6 = 0.794;
+const float ratioFinalDrive = 3.38;
 
-int currentGear = 0;
+int suspectedCurrentGear = 0;
 int previousGear = 0;
 
 // Define a custom structure to hold my result deltas
@@ -51,8 +81,8 @@ const int numberOfGears = sizeof(gearRatios) / sizeof(gearRatios[0]);
 DriveShaftRpmDelta driveShaftRpmDeltas[numberOfGears];
 
 // Define the function itself
-int getCurrentGear(int *rpm, float *rearWheelSpeed, bool clutchPressed, bool inNeutral) {
-  if (clutchPressed == true || inNeutral == true || rearWheelSpeed == 0) {
+int getCurrentGear(int *rpm, float *rearWheelSpeed, bool *clutchPressed, bool *inNeutral) {
+  if (*clutchPressed == true || *inNeutral == true || rearWheelSpeed == 0) {
     return 0;
   } else {
     // Calculate rear wheel speed in revolutions per minute
@@ -80,14 +110,14 @@ int getCurrentGear(int *rpm, float *rearWheelSpeed, bool clutchPressed, bool inN
       }
     }
 
-    // Return the gear with the closest ratio match
-    currentGear = driveShaftRpmDeltas[smallestIndex].gearNumber;
+    // Get the most likely gear number from the array
+    suspectedCurrentGear = driveShaftRpmDeltas[smallestIndex].gearNumber;
 
-    // Add some debug output when a gear change is detected
-    if (currentGear != previousGear) {
-      DEBUG_GEARS("Gear change detected from " + String(previousGear) + " to " + String(currentGear) + " with a ratio delta of " + String(driveShaftRpmDeltas[smallestIndex].rpmDelta));
-      previousGear = currentGear;
+    // Add some debug output when a gear change is detected and return the gear
+    if (suspectedCurrentGear != previousGear) {
+      DEBUG_GEARS("Gear change detected from " + String(previousGear) + " to " + String(suspectedCurrentGear) + " with a ratio delta of " + String(driveShaftRpmDeltas[smallestIndex].rpmDelta));
+      previousGear = suspectedCurrentGear;
     }
-    return currentGear;
+    return suspectedCurrentGear;
   }
 }

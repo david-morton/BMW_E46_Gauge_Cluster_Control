@@ -6,6 +6,8 @@
 /* ======================================================================
    FUNCTION PROTOTYPES
    ====================================================================== */
-int getCurrentGear();
+int getCurrentGear(int *, float *, bool *, bool *);
+bool getClutchStatus(byte);
+bool getNeutralStatus(byte);
 
 #endif
