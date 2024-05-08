@@ -9,6 +9,7 @@
 extern bool debugSerialReceive;
 extern bool debugSerialSend;
 extern bool debugGeneral;
+extern bool debugGears;
 
 /* ======================================================================
    HELPERS: Debug output definitions
@@ -38,6 +39,15 @@ extern bool debugGeneral;
       Serial.print("[DEBUG GENERAL] "); \
       Serial.println(message);          \
     }                                   \
+  } while (0)
+
+// Define the DEBUG_GEARS macro
+#define DEBUG_GEARS(message)          \
+  do {                                \
+    if (debugGears) {                 \
+      Serial.print("[DEBUG GEARS] "); \
+      Serial.println(message);        \
+    }                                 \
   } while (0)
 
 /* ======================================================================

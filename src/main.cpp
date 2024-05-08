@@ -21,8 +21,9 @@
 bool debugSerialReceive = false;
 bool debugSerialSend = false;
 bool debugGeneral = false;
+bool debugGears = true;
 
-bool reportArduinoLoopStats = true;
+bool reportArduinoLoopStats = false;
 
 /* ======================================================================
    VARIABLES: Pin constants. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select.
