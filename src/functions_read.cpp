@@ -1,14 +1,17 @@
 #include "functions_read.h"
 #include <Adafruit_MCP9808.h> // Used for temperature sensor
-#include <mcp2515_can.h>      // Used for Seeed shields
 #include <map>                // Used for defining the AFR lookup table
+#include <mcp2515_can.h>      // Used for Seeed shields
+
 
 /*****************************************************
  *
  * Function - Get the current engine bay electronics temp
  *
  ****************************************************/
-float readEngineElectronicsTemp(Adafruit_MCP9808 temp) { return temp.readTempC(); }
+float readEngineElectronicsTemp(Adafruit_MCP9808 temp) {
+  return temp.readTempC();
+}
 
 /*****************************************************
  *
@@ -16,9 +19,9 @@ float readEngineElectronicsTemp(Adafruit_MCP9808 temp) { return temp.readTempC()
  *
  ****************************************************/
 // Define lookup table for air/fuel ratios as measured from UpRev
-std::map<int,int> afRatioLookup = {{0,1000},{10,1023},{20,1047},{30,1071},{40,1094},{50,1117},{60,1141},{70,1164},{80,1188},{90,1211},{100,1235},{110,1258},{120,1282},{130,1303},{140,1321},{150,1338},{160,1356},{170,1377},{180,1398},{190,1419},{200,1440},{210,1459},{220,1477},{230,1511},{240,1560},{250,1611},{260,1662},{270,1713},{280,1770},{290,1830},{300,1888},{310,1947},{320,2012},{330,2128},{340,2244},{350,2360},{360,2477},{370,2593},{380,2709},{390,2826},{400,2942},{410,3116},{420,3349},{430,3581},{440,3814},{450,4073},{460,4452},{470,4968},{480,5484},{490,6000}};
+std::map<int, int> afRatioLookup = {{0, 1000}, {10, 1023}, {20, 1047}, {30, 1071}, {40, 1094}, {50, 1117}, {60, 1141}, {70, 1164}, {80, 1188}, {90, 1211}, {100, 1235}, {110, 1258}, {120, 1282}, {130, 1303}, {140, 1321}, {150, 1338}, {160, 1356}, {170, 1377}, {180, 1398}, {190, 1419}, {200, 1440}, {210, 1459}, {220, 1477}, {230, 1511}, {240, 1560}, {250, 1611}, {260, 1662}, {270, 1713}, {280, 1770}, {290, 1830}, {300, 1888}, {310, 1947}, {320, 2012}, {330, 2128}, {340, 2244}, {350, 2360}, {360, 2477}, {370, 2593}, {380, 2709}, {390, 2826}, {400, 2942}, {410, 3116}, {420, 3349}, {430, 3581}, {440, 3814}, {450, 4073}, {460, 4452}, {470, 4968}, {480, 5484}, {490, 6000}};
 
-float calculateAfRatioFromVoltage(float decimalVoltage){
+float calculateAfRatioFromVoltage(float decimalVoltage) {
   if (decimalVoltage == 0) {
     return 10.0;
   } else if (decimalVoltage >= 4.9) {

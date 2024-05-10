@@ -26,23 +26,31 @@ bool debugGears = true;
 bool reportArduinoLoopStats = false;
 
 /* ======================================================================
-   VARIABLES: Pin constants. In addition temp sensor uses 20 and 21, ethernet uses 31 for slave select.
+   VARIABLES: Pin constants
    ====================================================================== */
 const int SPI_SS_PIN_BMW = 9;     // Slave select pin for CAN shield 1 (BMW CAN bus)
 const int SPI_SS_PIN_NISSAN = 10; // Slave select pin for CAN shield 2 (Nissan CAN bus)
 const int CAN_INT_PIN = 2;
 
-const byte rpmSignalPin = 5;                // Digital input pin for signal wire and interrupt (from Nissan ECU)
-const byte fanDriverPwmSignalPin = 4;       // Digital output pin for PWM signal to radiator fan motor driver board
-const byte gaugeOilPressurePin = A0;        // Analogue pin 8 (Grey)
-const byte gaugeOilTemperaturePin = A1;     // Analogue pin 9 (Brown, uses voltage divider 1.5k ohm)
-const byte gaugeCrankCaseVacuumPin = A2;    // Analogue pin 10 (Red)
-                                            // Analogue pin 11 apparently used internaly for tone generation purposes
-const byte gaugeRadiatorOutletTempPin = A3; // Analogue pin 12 (White, uses voltage divider 1.5k ohm)
-const byte gaugeFuelPressurePin = A4;       // Analogue pin 13 (Black)
-const byte alarmBuzzerPin = 6;
-const byte clutchSwitchPin = 7;
-const byte neutralSwitchPin = 8;
+const byte rpmSignalPin = 3;          // Digital input pin for signal wire and interrupt (from Nissan ECU)
+const byte fanDriverPwmSignalPin = 6; // Digital output pin for PWM signal to radiator fan motor driver board
+const byte alarmBuzzerPin = 5;
+
+// Additional Uno pins assigned in globalHelpers.cpp for multiplexer board 7, 8, 15, 16 and A0
+// Temp sensor uses I2C comms on Uno pins 18 and 19
+// Ethernet shield uses Uno pin 4 for slave select (bent to the side and jumpered to pin 10 on shield as conflicts with CAN shield)
+// Ethernet shield uses SPI comms on Uno pins 11, 12 and 13
+
+/* ======================================================================
+   VARIABLES: Mux channel constants
+   ====================================================================== */
+const byte gaugeOilPressureMuxChannel = 0;        // (Grey)
+const byte gaugeOilTemperatureMuxChannel = 1;     // (Brown, uses voltage divider 1.5k ohm)
+const byte gaugeCrankCaseVacuumMuxChannel = 2;    // (Red)
+const byte gaugeRadiatorOutletTempMuxChannel = 3; // (White, uses voltage divider 1.5k ohm)
+const byte gaugeFuelPressureMuxChannel = 4;       // (Black)
+const byte clutchSwitchMuxChannel = 5;
+const byte neutralSwitchMuxChannel = 6;
 
 /* ======================================================================
    OBJECTS: Define CAN shield objects
@@ -180,7 +188,7 @@ void setup() {
   if (currentRpm == 0) {
     float totalVoltage = 0.0;
     for (int i = 0; i < 10; i++) {
-      int sensorValue = analogRead(gaugeCrankCaseVacuumPin);
+      int sensorValue = analogRead(gaugeCrankCaseVacuumMuxChannel);
       float voltage = sensorValue * (5.0 / 1023.0);
       totalVoltage += voltage;
       delay(20);
@@ -230,8 +238,6 @@ void setup() {
 
   // Configure pins for output to fan controller, clutch swith and neutral switch
   pinMode(fanDriverPwmSignalPin, OUTPUT);
-  pinMode(clutchSwitchPin, INPUT);
-  pinMode(neutralSwitchPin, INPUT);
 
   // Configure the temperature sensor located in the ECU compartment
   Serial.println("INFO - Initialising MCP9808 temperature sensor");
@@ -296,8 +302,8 @@ void loop() {
 
   // Get the clutch, neutral status and determine the current gear from speed and rpm
   if (ptGetCurrentClutchNeutralAndGear.call()) {
-    clutchPressed = getClutchStatus(clutchSwitchPin);
-    inNeutral = getNeutralStatus(neutralSwitchPin);
+    clutchPressed = getClutchStatus(clutchSwitchMuxChannel);
+    inNeutral = getNeutralStatus(neutralSwitchMuxChannel);
     currentGear = getCurrentGear(&currentRpm, &currentVehicleSpeedRear, &clutchPressed, &inNeutral);
   }
 
@@ -385,52 +391,53 @@ void loop() {
 
   // Request physical sensor values based on defined timers
   if (ptGaugeReadValueOilPressure.call()) {
-    currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressurePin);
+    currentOilPressurePsi = gaugeReadPressurePsi(gaugeOilPressureMuxChannel);
   }
 
   if (ptGaugeReadValueFuelPressure.call()) {
-    currentFuelPressurePsi = gaugeReadPressurePsi(gaugeFuelPressurePin);
+    currentFuelPressurePsi = gaugeReadPressurePsi(gaugeFuelPressureMuxChannel);
   }
 
   if (ptGaugeReadValueRadiatorOutletTemp.call()) {
-    currentRadiatorOutletTemp = gaugeReadTemperatureCelcius(gaugeRadiatorOutletTempPin);
+    currentRadiatorOutletTemp = gaugeReadTemperatureCelcius(gaugeRadiatorOutletTempMuxChannel);
   }
 
   if (ptGaugeReadValueOilTemp.call()) {
-    currentOilTempSensor = gaugeReadTemperatureCelcius(gaugeOilTemperaturePin);
+    currentOilTempSensor = gaugeReadTemperatureCelcius(gaugeOilTemperatureMuxChannel);
   }
 
   if (ptGaugeReadValueCrankCaseVacuum.call()) {
-    currentCrankCaseVacuumPsi = gaugeReadVacuumPsi(gaugeCrankCaseVacuumPin, atmospheric_voltage);
+    currentCrankCaseVacuumPsi = gaugeReadVacuumPsi(gaugeCrankCaseVacuumMuxChannel, atmospheric_voltage);
   }
 
   // Publish data for Grafana Live consumption via defined timers and over MQTT
   if (ptPublishMqttData100Ms.call()) {
     publishMqttMetric("rpm", "value", currentRpm);
     publishMqttMetric("speed", "value", currentVehicleSpeedFront);
+    publishMqttMetric("gear", "value", currentGear);
     publishMqttMetric("diffSpeedSplit", "value", currentVehicleSpeedRearVariation);
-    publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
-    publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
-    publishMqttMetric("afRatioBank2", "value", String(currentAfRatioBank2));
-    publishMqttMetric("alphaPercentageBank1", "value", currentAlphaPercentageBank1);
-    publishMqttMetric("alphaPercentageBank2", "value", currentAlphaPercentageBank2);
     publishMqttMetric("oilPressure", "value", String(currentOilPressurePsi));
     publishMqttMetric("crankCaseVacuum", "value", String(currentCrankCaseVacuumPsi));
+    // publishMqttMetric("gasPedalPercent", "value", currentGasPedalPosition);
+    // publishMqttMetric("afRatioBank1", "value", String(currentAfRatioBank1));
+    // publishMqttMetric("afRatioBank2", "value", String(currentAfRatioBank2));
+    // publishMqttMetric("alphaPercentageBank1", "value", currentAlphaPercentageBank1);
+    // publishMqttMetric("alphaPercentageBank2", "value", currentAlphaPercentageBank2);
   }
 
   if (ptPublishMqttData1S.call()) {
-    publishMqttMetric("batteryVoltage", "value", String(currentBatteryVoltage));
     publishMqttMetric("fuelPressure", "value", String(currentFuelPressurePsi));
-    publishMqttMetric("airIntakeTemp", "value", currentAirIntakeTemp);
     publishMqttMetric("coolant", "value", currentEngineTempCelsius);
     publishMqttMetric("ecm", "value", currentEngineElectronicsTemp);
     publishMqttMetric("fan", "value", currentFanDutyPercentage);
-    publishMqttMetric("oilTempEcm", "value", currentOilTempEcm);
     publishMqttMetric("oilTempSensor", "value", currentOilTempSensor);
     publishMqttMetric("radiatorTemp", "value", currentRadiatorOutletTemp);
     publishMqttMetric("0to50", "value", String(getBestZeroToFifty() / 1000));
     publishMqttMetric("0to100", "value", String(getBestZeroToOneHundred() / 1000));
     publishMqttMetric("80to120", "value", String(getBestEightyToOneTwenty() / 1000));
+    // publishMqttMetric("oilTempEcm", "value", currentOilTempEcm);
+    // publishMqttMetric("airIntakeTemp", "value", currentAirIntakeTemp);
+    // publishMqttMetric("batteryVoltage", "value", String(currentBatteryVoltage));
   }
 
   // Set or unset audible alarm state if conditions are met

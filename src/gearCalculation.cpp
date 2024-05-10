@@ -7,20 +7,20 @@
    ====================================================================== */
 bool previousNeutralStatus;
 
-bool getNeutralStatus(byte pin) {
-  bool pinStatus = digitalRead(pin);
-  if (pinStatus == HIGH) {
-    if (pinStatus != previousNeutralStatus) {
+bool getNeutralStatus(byte muxChannel) {
+  bool muxChannelStatus = getMuxDigitalChannelValue(muxChannel);
+  if (muxChannelStatus == HIGH) {
+    if (muxChannelStatus != previousNeutralStatus) {
       DEBUG_GEARS("Transmission is in neutral");
-      previousNeutralStatus = pinStatus;
+      previousNeutralStatus = muxChannelStatus;
     }
-    return true;
+    return false; // Change once wired in
   } else {
-    if (pinStatus != previousNeutralStatus) {
+    if (muxChannelStatus != previousNeutralStatus) {
       DEBUG_GEARS("Transmission is in gear");
-      previousNeutralStatus = pinStatus;
+      previousNeutralStatus = muxChannelStatus;
     }
-    return false;
+    return false; // Change once wired in
   }
 }
 
@@ -29,20 +29,20 @@ bool getNeutralStatus(byte pin) {
    ====================================================================== */
 bool previousClutchStatus;
 
-bool getClutchStatus(byte pin) {
-  bool pinStatus = digitalRead(pin);
-  if (pinStatus == HIGH) {
-    if (pinStatus != previousNeutralStatus) {
+bool getClutchStatus(byte muxChannel) {
+  bool muxChannelStatus = getMuxDigitalChannelValue(muxChannel);
+  if (muxChannelStatus == HIGH) {
+    if (muxChannelStatus != previousNeutralStatus) {
       DEBUG_GEARS("Clutch was pressed");
-      previousNeutralStatus = pinStatus;
+      previousNeutralStatus = muxChannelStatus;
     }
-    return true;
+    return false; // Change once wired in
   } else {
-    if (pinStatus != previousNeutralStatus) {
+    if (muxChannelStatus != previousNeutralStatus) {
       DEBUG_GEARS("Clutch was released");
-      previousNeutralStatus = pinStatus;
+      previousNeutralStatus = muxChannelStatus;
     }
-    return false;
+    return false; // Change once wired in
   }
 }
 

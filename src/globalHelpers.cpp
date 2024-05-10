@@ -5,11 +5,11 @@
    VARIABLES: Pin constants
    ====================================================================== */
 // Needed for multiplexer board setup
-const int muxS0Pin = 4;
-const int muxS1Pin = 5;
-const int muxS2Pin = 6;
-const int muxS3Pin = 7;
-const byte muxSignalPin = A3;
+const int muxS0Pin = 7;
+const int muxS1Pin = 8;
+const int muxS2Pin = 15;
+const int muxS3Pin = 16;
+const byte muxSignalPin = A0;
 
 /* ======================================================================
    OBJECT DECLARATIOS
@@ -30,7 +30,7 @@ void setupMux() {
 }
 
 /* ======================================================================
-   FUNCTION: Get average readings from analogue pin
+   FUNCTION: Get averaged analogue reading from analogue pin
    ====================================================================== */
 int getAveragedAnaloguePinReading(byte pin, int samples, int delayUs) {
   int totalReadings = 0;
@@ -48,12 +48,20 @@ int getAveragedAnaloguePinReading(byte pin, int samples, int delayUs) {
 }
 
 /* ======================================================================
-   FUNCTION: Get average readings from multiplexed channel via CD74HC4067
+   FUNCTION: Get averaged analogue reading from multiplexed channel via CD74HC4067
    ====================================================================== */
 int getAveragedMuxAnalogueChannelReading(byte channel, int samples, int delayUs) {
   mux.channel(channel);
   int averageReading = getAveragedAnaloguePinReading(muxSignalPin, samples, delayUs);
   return averageReading;
+}
+
+/* ======================================================================
+   FUNCTION: Get digital value from multiplexed channel via CD74HC4067
+   ====================================================================== */
+bool getMuxDigitalChannelValue(byte channel) {
+  mux.channel(channel);
+  return digitalRead(muxSignalPin);
 }
 
 /* ======================================================================

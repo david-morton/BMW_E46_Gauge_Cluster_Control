@@ -5,7 +5,7 @@
 #include <SPI.h>
 
 // Assign the slave select pin. This is pin 10 on the shield which is bent and jumpered
-const int ETH_SS_PIN = 31;
+const int ETH_SS_PIN = 4;
 
 // Define toggle for connection state
 bool mqttBrokerConnected = false;

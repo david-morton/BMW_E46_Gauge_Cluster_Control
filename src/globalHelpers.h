@@ -57,5 +57,6 @@ int getAveragedAnaloguePinReading(byte, int, int);
 int getAveragedMuxAnalogueChannelReading(byte, int, int);
 void reportArduinoLoopRate(unsigned long *);
 void setupMux();
+bool getMuxDigitalChannelValue(byte);
 
 #endif
